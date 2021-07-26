@@ -23,4 +23,5 @@
 build
 .editorconfig
 
+.DS_Store
 # /resources
