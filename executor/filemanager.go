@@ -187,14 +187,12 @@ func (ex *FileManagerExecutor) DownloadStream(id string, res fmpb.FileManager_Do
 	if err = db.Where("id = ?", fileInfo.FileDirID).First(&dirInfo).Error; err != nil {
 		return
 	}
-	filePath = fileSplit + dirInfo.SpaceID + dirInfo.Url + fileInfo.ID + "-" + fileInfo.Name
+	filePath = fileSplit + dirInfo.SpaceID + fileSplit + fileInfo.ID + "_" + fileInfo.Name
 	if client, err = hdfs.New(dirInfo.Address); err != nil {
 		return
 	}
 	defer func() {
-		if err2 := client.Close(); err2 != nil {
-			err = status.Errorf(codes.Internal, "(%v); error closing client (%v)", err, err2)
-		}
+		_ = client.Close()
 	}()
 	if reader, err = client.Open(filePath); err != nil {
 		return
@@ -338,7 +336,7 @@ func (ex *FileManagerExecutor) DeleteDir(ctx context.Context, dirId string) (err
 		_ = client.Close()
 	}()
 
-	if err = db.Debug().Raw(fmt.Sprintf(`select * from file_dir where space_id = '%v' and address = '%v' and delete_timestamp = %d and url like '%s'`, dirInfo.SpaceID, dirInfo.Address, 0, dirInfo.Url+"%")).Find(&dirList).Error;err!=nil{
+	if err = db.Debug().Raw(fmt.Sprintf(`select * from file_dir where space_id = '%v' and address = '%v' and delete_timestamp = %d and url like '%s'`, dirInfo.SpaceID, dirInfo.Address, 0, dirInfo.Url+"%")).Find(&dirList).Error; err != nil {
 		return
 	}
 	for _, dir := range dirList {
