@@ -55,8 +55,6 @@ func mainInit(t *testing.T) {
 	ctx = glog.WithContext(context.Background(), lp)
 	conn, err := grpcwrap.NewConn(ctx, &grpcwrap.ClientConfig{
 		Address:      address,
-		LogLevel:     2,
-		LogVerbosity: 99,
 	})
 	require.Nil(t, err, "%+v", err)
 	client = fmpb.NewFileManagerClient(conn)
