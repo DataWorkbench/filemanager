@@ -378,6 +378,80 @@ func (ex *FileManagerExecutor) GetFileById(ctx context.Context, id string) (res 
 	return
 }
 
+func (ex *FileManagerExecutor) GetSubDirFile(ctx context.Context, id string) (*fmpb.GetSubDirListReply, error) {
+	var (
+		dirInfo          FileDir
+		childDirs        []*FileDir
+		childFiles       []*FileManager
+		dirListResponse  []*fmpb.GetSubDirListReply_Dir
+		fileListResponse []*fmpb.GetSubDirListReply_File
+	)
+	db := ex.db.WithContext(ctx)
+	if result := db.Where("id = ? and delete_timestamp = 0", id).First(&dirInfo); result.RowsAffected == 0 {
+		return nil, status.Errorf(codes.NotFound, "文件夹不存在")
+	}
+	db.Where(&FileDir{ParentID: &id}).Find(&childDirs)
+	db.Where(&FileManager{FileDirID: id}).Find(&childFiles)
+	for _, dir := range childDirs {
+		dirListResponse = append(dirListResponse, &fmpb.GetSubDirListReply_Dir{
+			ID:   dir.ID,
+			Name: dir.Name,
+		})
+	}
+	for _, file := range childFiles {
+		fileListResponse = append(fileListResponse, &fmpb.GetSubDirListReply_File{
+			ID:   file.ID,
+			Name: file.Name,
+			URL:  "hdfs://" + dirInfo.Address + fileSplit + dirInfo.SpaceID + fileSplit + file.ID + "_" + file.Name,
+		})
+	}
+	res := fmpb.GetSubDirListReply{
+		ID:         dirInfo.ID,
+		Name:       dirInfo.Name,
+		ChileDirs:  dirListResponse,
+		ChildFiles: fileListResponse,
+	}
+	return &res, nil
+}
+
+func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id string, name string, t int32, path string) (*model.EmptyStruct, error) {
+	var (
+		fileInfo FileManager
+		dirInfo  FileDir
+	)
+	if err := checkFileDir(&path); err != nil {
+		return nil, err
+	}
+	db := ex.db.WithContext(ctx)
+	if result := db.Where("id = ? and delete_timestamp = 0", id).First(&fileInfo); result.RowsAffected == 0 {
+		return nil, status.Errorf(codes.NotFound, "文件不存在")
+	}
+	if result := db.Where("id = ? and delete_timestamp = 0", fileInfo.FileDirID).First(&dirInfo); result.RowsAffected == 0 {
+		return nil, status.Error(codes.Internal, "文件夹不存在")
+	}
+	tx := db.Begin()
+	if path != "" {
+		dirId, err := createDirs(tx, ex.idGenerator, dirInfo.SpaceID, path, dirInfo.Address)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		fileInfo.FileDirID = dirId
+	}
+	if name != "" {
+		fileInfo.Name = name
+	}
+	if t != fileInfo.FileType {
+		fileInfo.FileType = t
+	}
+	if err := tx.Save(&fileInfo).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	tx.Commit()
+	return &model.EmptyStruct{}, nil
+}
+
 func deleteChildDirAndFile(tx *gorm.DB, parent, address, spaceId string) (err error) {
 	if parent == "" {
 		return

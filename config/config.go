@@ -19,7 +19,7 @@ import (
 var FilePath string
 
 const (
-	envPrefix = "UDF_MANAGER"
+	envPrefix = "FILE_MANAGER"
 )
 
 // Config is the configuration settings for spacemanager

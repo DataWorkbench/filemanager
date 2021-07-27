@@ -242,6 +242,36 @@ func TestGetFileById(t *testing.T) {
 	}
 }
 
+//func TestGetSubDirFile(t *testing.T) {
+//	fmt.Println("===================================================================")
+//	fmt.Println("testing get sub dir file by id")
+//	fmt.Println("===================================================================")
+//
+//	testGetSubFileDirRequest := fmpb.GetSubDirListRequest{ID: "file-04a73171ff1fc002"}
+//	_, err := client.GetSubDirFile(ctx, &testGetSubFileDirRequest)
+//	require.Nil(t, err, "%+v", err)
+//}
+
+func TestUpdateFile(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing updating file")
+	fmt.Println("===================================================================")
+	var testUpdateFileRequest []*fmpb.UpdateFileRequest
+	for index, id := range ids {
+		testUpdateFileRequest = append(testUpdateFileRequest, &fmpb.UpdateFileRequest{
+			ID:   id,
+			Name: fmt.Sprintf("window%d.jar", index),
+			Type: 2,
+			Path: fmt.Sprintf("/jar/demo%d/abc/", index),
+		})
+	}
+	for _, v := range testUpdateFileRequest {
+		_, err := client.UpdateFile(ctx, v)
+		require.Nil(t, err, "%+v", err)
+
+	}
+}
+
 //func TestDeleteDir(t *testing.T) {
 //	var testDeleteRequest = []fmpb.DeleteRequest{
 //		{ID: ""},

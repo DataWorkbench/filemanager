@@ -50,3 +50,13 @@ func (fs *FileManagerServer) DeleteDirById(ctx context.Context, req *fmpb.Delete
 func (fs *FileManagerServer) GetFileById(ctx context.Context, req *fmpb.IdRequest) (*fmpb.FileInfoReply, error) {
 	return fs.executor.GetFileById(ctx, req.ID)
 }
+
+//GetSubDirFile 根据文件夹id查找其下级文件夹和文件
+func (fs *FileManagerServer) GetSubDirFile(ctx context.Context, req *fmpb.GetSubDirListRequest) (*fmpb.GetSubDirListReply, error) {
+	return fs.executor.GetSubDirFile(ctx, req.ID)
+}
+
+//UpdateFile 更新文件的Name Type Path
+func (fs *FileManagerServer) UpdateFile(ctx context.Context, req *fmpb.UpdateFileRequest) (*model.EmptyStruct, error) {
+	return fs.executor.UpdateFile(ctx, req.ID, req.Name, req.Type,req.Path)
+}
