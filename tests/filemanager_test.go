@@ -271,7 +271,7 @@ func TestUpdateFile(t *testing.T) {
 
 func TestDeleteDir(t *testing.T) {
 	var testDeleteRequest = []fmpb.DeleteRequest{
-		{ID: "file-04a7721feddfc000"},
+		{ID: "file-04a77744581fc000"},
 	}
 	for _, v := range testDeleteRequest {
 		_, err := client.DeleteDirById(ctx, &v)
