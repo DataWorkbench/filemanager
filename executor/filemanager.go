@@ -35,12 +35,10 @@ const (
 )
 
 type FileInfo struct {
-	ID       *string
 	SpaceID  *string
 	FileName *string
 	FileDir  *string
 	UserId   *string
-	Address  *string
 	FilePath *string
 	FileType *int32
 }
@@ -54,32 +52,26 @@ func NewFileManagerExecutor(db *gorm.DB, l *glog.Logger, hdfsServer string) *Fil
 	}
 }
 
-func (ex *FileManagerExecutor) Upload(ctx context.Context, id, spaceID, fileName, fileDir string, fType int32) (err error) {
-	if err = checkFileDir(&fileDir); err != nil {
-		return
-	}
-
-	fileDir = fileSplit + spaceID + fileDir
-	filePath := fileDir + id + "-" + fileName
-	if err = ex.bindingData(ctx, id, spaceID, fileName, fileDir, ex.hdfsServer, fType); err != nil {
-		err = bindingErrorHandler(ex.hdfsServer, filePath, err)
-	}
-	return
-}
-
 func (ex *FileManagerExecutor) UploadStream(fu fmpb.FileManager_UploadStreamServer) error {
 	var info = FileInfo{}
-	err := ex.uploadStreamHandler(fu, &info)
+	fileId, err := ex.idGenerator.Take()
 	if err != nil {
 		return err
 	}
-	if err = ex.bindingData(fu.Context(), *info.ID, *info.SpaceID, *info.FileName, *info.FileDir, *info.Address, *info.FileType); err != nil && err != io.EOF {
-		return bindingErrorHandler(*info.Address, *info.FilePath, err)
+	err = ex.uploadStreamHandler(fu, &info, fileId)
+	if err != nil {
+		return err
 	}
-	return fu.SendAndClose(&model.EmptyStruct{})
+	if err = ex.bindingData(fu.Context(), fileId, *info.SpaceID, *info.FileName, *info.FileDir, ex.hdfsServer, *info.FileType); err != nil && err != io.EOF {
+		return bindingErrorHandler(ex.hdfsServer, *info.FilePath, err)
+	}
+	return fu.SendAndClose(&fmpb.UploadReply{
+		ID:  fileId,
+		URL: "hdfs://" + ex.hdfsServer + fileSplit + *info.SpaceID + fileSplit + fileId + "_" + *info.FileName,
+	})
 }
 
-func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadStreamServer, fileInfo *FileInfo) (err error) {
+func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadStreamServer, fileInfo *FileInfo, fileId string) (err error) {
 	var (
 		client *hdfs.Client
 		writer *hdfs.FileWriter
@@ -90,10 +82,8 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadStr
 	}
 
 	if recv != nil {
-		fileInfo.ID = &recv.ID
 		fileInfo.SpaceID = &recv.SpaceID
 		fileInfo.FileDir = &recv.FileDir
-		fileInfo.Address = &ex.hdfsServer
 		fileInfo.FileType = &recv.FileType
 		if err = checkFileDir(&recv.FileDir); err != nil {
 			return
@@ -101,7 +91,7 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadStr
 		fileInfo.FileName = &recv.FileName
 		//TODO hdfs路径
 		fileDir := fileSplit + recv.SpaceID + fileSplit
-		filePath := fileDir + recv.ID + "_" + recv.FileName
+		filePath := fileDir + fileId + "_" + recv.FileName
 		fileInfo.FilePath = &filePath
 		if client, err = hdfs.New(ex.hdfsServer); err != nil {
 			return
@@ -297,12 +287,9 @@ func (ex *FileManagerExecutor) DeleteDir(ctx context.Context, dirId string) (err
 		client   *hdfs.Client
 	)
 	db := ex.db.WithContext(ctx)
-	if err = db.Where("id = ?", dirId).First(&dirInfo).Error; err != nil {
+	if err = db.Where("id = ? and delete_timestamp = 0", dirId).First(&dirInfo).Error; err != nil {
 		return
-	} else if dirInfo.DeleteTimestamp != 0 {
-		return status.Error(codes.AlreadyExists, "dir already exists")
 	}
-
 	tx := db.Begin()
 
 	//TODO 删除当前文件夹下的文件
@@ -416,22 +403,30 @@ func (ex *FileManagerExecutor) GetSubDirFile(ctx context.Context, id string) (*f
 
 func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id string, name string, t int32, path string) (*model.EmptyStruct, error) {
 	var (
+		err      error
 		fileInfo FileManager
 		dirInfo  FileDir
+		client   *hdfs.Client
+		oldPath  string
+		newPath  string
+		dirId    string
 	)
-	if err := checkFileDir(&path); err != nil {
+	if err = checkFileDir(&path); err != nil {
 		return nil, err
 	}
 	db := ex.db.WithContext(ctx)
 	if result := db.Where("id = ? and delete_timestamp = 0", id).First(&fileInfo); result.RowsAffected == 0 {
 		return nil, status.Errorf(codes.NotFound, "文件不存在")
 	}
+
 	if result := db.Where("id = ? and delete_timestamp = 0", fileInfo.FileDirID).First(&dirInfo); result.RowsAffected == 0 {
 		return nil, status.Error(codes.Internal, "文件夹不存在")
 	}
+	baseDir := fileSplit + dirInfo.SpaceID + fileSplit
+	oldPath = baseDir + fileInfo.ID + "_" + fileInfo.Name
 	tx := db.Begin()
 	if path != "" {
-		dirId, err := createDirs(tx, ex.idGenerator, dirInfo.SpaceID, path, dirInfo.Address)
+		dirId, err = createDirs(tx, ex.idGenerator, dirInfo.SpaceID, path, dirInfo.Address)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
@@ -439,12 +434,33 @@ func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id string, name s
 		fileInfo.FileDirID = dirId
 	}
 	if name != "" {
+		db = db.Where("name = ?", name)
+		if dirId != "" {
+			db = db.Where("dir_id = ?", dirId)
+		}
+		if result := db.Where("delete_timestamp = 0").Find(&FileManager{}); result.RowsAffected != 0 {
+			tx.Rollback()
+			return nil, status.Errorf(codes.AlreadyExists, "文件已存在")
+		}
 		fileInfo.Name = name
+		newPath = baseDir + fileInfo.ID + "_" + fileInfo.Name
+		client, err = hdfs.New(dirInfo.Address)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		defer func() {
+			_ = client.Close()
+		}()
+		if err = client.Rename(oldPath, newPath); err != nil {
+			tx.Rollback()
+			return nil, err
+		}
 	}
 	if t != 0 {
 		fileInfo.FileType = t
 	}
-	if err := tx.Save(&fileInfo).Error; err != nil {
+	if err = tx.Save(&fileInfo).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}

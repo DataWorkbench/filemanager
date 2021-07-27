@@ -159,10 +159,6 @@ func TestUpload(t *testing.T) {
 		reader := io.Reader(file)
 		buf := make([]byte, 4096)
 		var n int
-		id, err := generator.Take()
-		require.Nil(t, err, "%+v", err)
-		v.ID = id
-		ids = append(ids, id)
 		stream, err := client.UploadStream(ctx)
 		require.Nil(t, err, "%+v", err)
 		for {
@@ -176,8 +172,9 @@ func TestUpload(t *testing.T) {
 			err = stream.Send(v)
 			require.Nil(t, err, "%+v", err)
 		}
-		_, err = stream.CloseAndRecv()
+		rsp, err := stream.CloseAndRecv()
 		require.Nil(t, err, "%+v", err)
+		ids = append(ids, rsp.ID)
 	}
 }
 
@@ -272,12 +269,12 @@ func TestUpdateFile(t *testing.T) {
 	}
 }
 
-//func TestDeleteDir(t *testing.T) {
-//	var testDeleteRequest = []fmpb.DeleteRequest{
-//		{ID: ""},
-//	}
-//	for _, v := range testDeleteRequest {
-//		_, err := client.DeleteDirById(ctx, &v)
-//		require.Nil(t, err, "%+v", err)
-//	}
-//}
+func TestDeleteDir(t *testing.T) {
+	var testDeleteRequest = []fmpb.DeleteRequest{
+		{ID: "file-04a7721feddfc000"},
+	}
+	for _, v := range testDeleteRequest {
+		_, err := client.DeleteDirById(ctx, &v)
+		require.Nil(t, err, "%+v", err)
+	}
+}
