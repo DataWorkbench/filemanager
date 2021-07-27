@@ -441,7 +441,7 @@ func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id string, name s
 	if name != "" {
 		fileInfo.Name = name
 	}
-	if t != fileInfo.FileType {
+	if t != 0 {
 		fileInfo.FileType = t
 	}
 	if err := tx.Save(&fileInfo).Error; err != nil {
