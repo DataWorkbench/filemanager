@@ -34,7 +34,7 @@ make generate
 ## 服务
 - 查看版本
 ```bash 
-./build/bin/flowmanager -v
+./build/bin/filemanager -v
 ```
 
 - 启动服务
