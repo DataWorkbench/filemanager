@@ -1,32 +1,16 @@
-CREATE TABLE `file_dir`
-(
-    `id`               varchar(25)  NOT NULL,
-    `address`          varchar(200) NOT NULL,
-    `space_id`         varchar(25)  NOT NULL,
-    `url`              varchar(500) NOT NULL,
-    `name`             varchar(200) NOT NULL,
-    `level`            int(1) DEFAULT 1,
-    `parent`           varchar(25),
-    `create_time`      varchar(20),
-    `update_time`      varchar(20),
-    `delete_timestamp` int(13),
-    PRIMARY KEY (`id`),
-    UNIQUE INDEX file_dir_unique (`address`, `space_id`, `url`, `delete_timestamp`),
-    CONSTRAINT `fk_file_dir_sub_dir` FOREIGN KEY (`parent`) REFERENCES `file_dir` (`id`)
-);
-
 CREATE TABLE `file_manager`
 (
     `id`               varchar(25) NOT NULL,
+    `space_id`         varchar(20) NOT NULL,
     `name`             varchar(25) NOT NULL,
-    `dir_id`           varchar(25) NOT NULL,
-    `file_type`        int(1) DEFAULT 1,
+    `hdfs_name`        varchar(25) NOT NULL,
+    `path`             varchar(25) NOT NULL,
+    `type`             int(1) DEFAULT 1 comment '1 jar 2 udf',
+    `address`          varchar(20),
     `create_time`      varchar(20),
     `update_time`      varchar(20),
     `delete_timestamp` int(13),
     PRIMARY KEY (`id`),
-    UNIQUE INDEX file_manager_unique (`name`, `dir_id`, `delete_timestamp`),
-    CONSTRAINT `fk_file_dir_sub_file` FOREIGN KEY (`dir_id`) REFERENCES `file_dir` (`id`)
-)
-
-
+    CONSTRAINT file_manager_chk_type check (type = 1 or type = 2),
+    UNIQUE INDEX file_manager_unique (`address`, `space_id`, `path`, `name`, `delete_timestamp`)
+);

@@ -136,14 +136,14 @@ func TestUpload(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing upload")
 	fmt.Println("===================================================================")
-	uploadRequest := []*fmpb.UploadRequest{
-		{SpaceID: spaceID, FileType: 1, FileName: "window01.jar", FileDir: "/jar/demo"},
-		{SpaceID: spaceID, FileType: 1, FileName: "window02.jar", FileDir: "/jar/demo"},
-		{SpaceID: spaceID, FileType: 1, FileName: "window03.jar", FileDir: "/jar/demo/x"},
-		{SpaceID: spaceID, FileType: 1, FileName: "window01.jar", FileDir: ""},
-		{SpaceID: spaceID, FileType: 1, FileName: "window02.jar", FileDir: "/xxx/abc/ex"},
-		{SpaceID: spaceID, FileType: 1, FileName: "window03.jar", FileDir: "/"},
-		{SpaceID: spaceID, FileType: 2, FileName: "udf01.jar", FileDir: "/udf/demo"},
+	uploadRequest := []*fmpb.UploadFileRequest{
+		{SpaceID: spaceID, FileType: 1, FileName: "window01.jar", FilePath: "/jar/demo"},
+		{SpaceID: spaceID, FileType: 1, FileName: "window02.jar", FilePath: "/jar/demo"},
+		{SpaceID: spaceID, FileType: 1, FileName: "window03.jar", FilePath: "/jar/demo/x"},
+		{SpaceID: spaceID, FileType: 1, FileName: "window01.jar", FilePath: ""},
+		{SpaceID: spaceID, FileType: 1, FileName: "window02.jar", FilePath: "/xxx/abc/ex"},
+		{SpaceID: spaceID, FileType: 1, FileName: "window03.jar", FilePath: "/"},
+		{SpaceID: spaceID, FileType: 2, FileName: "udf01.jar", FilePath: "/udf/demo"},
 	}
 
 	for index, v := range uploadRequest {
@@ -154,12 +154,14 @@ func TestUpload(t *testing.T) {
 		} else {
 			file, err = os.Open("../resources/udf.jar")
 		}
-		defer file.Close()
+		defer func() {
+			_ = file.Close()
+		}()
 		require.Nil(t, err, "%+v", err)
 		reader := io.Reader(file)
 		buf := make([]byte, 4096)
 		var n int
-		stream, err := client.UploadStream(ctx)
+		stream, err := client.Upload(ctx)
 		require.Nil(t, err, "%+v", err)
 		for {
 			n, err = reader.Read(buf)
@@ -183,27 +185,26 @@ func TestDownload(t *testing.T) {
 	fmt.Println("testing download")
 	fmt.Println("===================================================================")
 
-	var testDownloadRequest = []fmpb.DownloadRequest{
-		{ID: ids[0]},
+	var downloadRequest []fmpb.DownloadRequest
+	for _, id := range ids {
+		downloadRequest = append(downloadRequest, fmpb.DownloadRequest{ID: id})
 	}
 	var (
-		stream fmpb.FileManager_DownloadStreamClient
-		recv   *fmpb.DownloadReply
+		stream fmpb.FileManager_DownloadClient
+		recv   *fmpb.DownloadResponse
 	)
-	for _, v := range testDownloadRequest {
-		f, err := os.Create("../resources/w.jar")
+	for index, v := range downloadRequest {
+		f, err := os.Create(fmt.Sprintf("../download/w%d.jar", index))
 		require.Nil(t, err, "%+v", err)
-		stream, err = client.DownloadStream(ctx, &v)
+		stream, err = client.Download(ctx, &v)
 		require.Nil(t, err, "%+v", err)
 		for {
 			recv, err = stream.Recv()
-			if err == io.EOF {
+			if err == io.EOF || recv == nil {
+				err = nil
 				break
 			}
 			require.Nil(t, err, "%+v", err)
-			if recv == nil {
-				break
-			}
 			_, err = f.Write(recv.Data)
 			require.Nil(t, err, "%+v", err)
 		}
@@ -211,70 +212,67 @@ func TestDownload(t *testing.T) {
 	}
 }
 
-func TestGetFileList(t *testing.T) {
+func TestGetFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing get file list")
 	fmt.Println("===================================================================")
-	var testListRequest = fmpb.GetDirListRequest{
-		SpaceID: spaceID,
+	getFileRequests := []*fmpb.FilesFilterRequest{
+		{ID: ids[0], SpaceID: spaceID},
+		{SpaceID: spaceID},
+		{SpaceID: spaceID, Name: "ud"},
+		{SpaceID: spaceID, Name: "wind"},
+		{SpaceID: spaceID, Name: "wind", Path: "/jar/demo/"},
+		{SpaceID: spaceID, Type: 2},
 	}
-
-	_, err := client.GetDirList(ctx, &testListRequest)
-	require.Nil(t, err, "%+v", err)
-
-}
-
-func TestGetFileById(t *testing.T) {
-	fmt.Println("===================================================================")
-	fmt.Println("testing get file by id")
-	fmt.Println("===================================================================")
-
-	var testGetFileRequest []fmpb.IdRequest
-	for _, v := range ids {
-		testGetFileRequest = append(testGetFileRequest, fmpb.IdRequest{ID: v})
-	}
-	for _, v := range testGetFileRequest {
-		_, err := client.GetFileById(ctx, &v)
+	for _, v := range getFileRequests {
+		_, err := client.GetFile(ctx, v)
 		require.Nil(t, err, "%+v", err)
 	}
-}
 
-//func TestGetSubDirFile(t *testing.T) {
-//	fmt.Println("===================================================================")
-//	fmt.Println("testing get sub dir file by id")
-//	fmt.Println("===================================================================")
-//
-//	testGetSubFileDirRequest := fmpb.GetSubDirListRequest{ID: "file-04a73171ff1fc002"}
-//	_, err := client.GetSubDirFile(ctx, &testGetSubFileDirRequest)
-//	require.Nil(t, err, "%+v", err)
-//}
+}
 
 func TestUpdateFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing updating file")
 	fmt.Println("===================================================================")
-	var testUpdateFileRequest []*fmpb.UpdateFileRequest
+	var testUpdateRequests []*fmpb.UpdateFileRequest
 	for index, id := range ids {
-		testUpdateFileRequest = append(testUpdateFileRequest, &fmpb.UpdateFileRequest{
+		testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
 			ID:   id,
 			Name: fmt.Sprintf("window%d.jar", index),
 			Type: 2,
 			Path: fmt.Sprintf("/jar/demo%d/abc/", index),
 		})
 	}
-	for _, v := range testUpdateFileRequest {
-		_, err := client.UpdateFile(ctx, v)
+	for _, v := range testUpdateRequests {
+		_, err := client.Update(ctx, v)
 		require.Nil(t, err, "%+v", err)
 
 	}
 }
 
-func TestDeleteDir(t *testing.T) {
-	var testDeleteRequest = []fmpb.DeleteRequest{
-		{ID: "file-04a77744581fc000"},
+func TestDelete(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing deleting file")
+	fmt.Println("===================================================================")
+	var testDeleteRequests []*fmpb.DeleteFileRequest
+	for _, id := range ids {
+		testDeleteRequests = append(testDeleteRequests, &fmpb.DeleteFileRequest{
+			ID:      id,
+			SpaceID: spaceID,
+		})
 	}
-	for _, v := range testDeleteRequest {
-		_, err := client.DeleteDirById(ctx, &v)
+	for _, r := range testDeleteRequests {
+		_, err := client.Delete(ctx, r)
 		require.Nil(t, err, "%+v", err)
 	}
+}
+
+func TestDeleteAll(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing deleting all")
+	fmt.Println("===================================================================")
+	deleteAllRequest := &fmpb.DeleteFileRequest{SpaceID: spaceID}
+	_, err := client.Delete(ctx, deleteAllRequest)
+	require.Nil(t, err, "%+v", err)
 }

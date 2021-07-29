@@ -2,12 +2,11 @@ package config
 
 import (
 	"fmt"
+	"github.com/go-playground/validator/v10"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"time"
-
-	"github.com/go-playground/validator/v10"
-	"gopkg.in/yaml.v3"
 
 	"github.com/DataWorkbench/common/gormwrap"
 	"github.com/DataWorkbench/common/grpcwrap"
