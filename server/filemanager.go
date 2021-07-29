@@ -44,13 +44,6 @@ func (fs *FileManagerServer) Upload(fu fmpb.FileManager_UploadServer) error {
 // @description   下载hadoop文件到本地
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     ID             string         "文件id"
-// @return    ID             string         "文件id"
-// @return    SpaceID        string         "工作空间id"
-// @return    FileName       string         "文件名"
-// @return    FilePath       string         "文件路径"
-// @return    FileType       int32          "文件类型 1 jar包文件 2 udf文件"
-// @return    HdfsAddress    string         "hadoop地址"
-// @return    URL            string         "文件的hadoop地址"
 func (fs *FileManagerServer) Download(req *fmpb.DownloadRequest, res fmpb.FileManager_DownloadServer) error {
 	return fs.executor.Download(req.ID, res)
 }
