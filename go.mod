@@ -12,10 +12,8 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
 	google.golang.org/grpc v1.34.0
-	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gorm.io/gorm v1.20.7
 )
 
-replace (
-	github.com/DataWorkbench/gproto v0.0.0-20210727073007-ff34f8ea81e1 => /Users/gxlevi/go/src/github.com/DataWorkbench/gproto
-)
+replace github.com/DataWorkbench/gproto v0.0.0-20210727073007-ff34f8ea81e1 => /Users/gxlevi/go/src/github.com/DataWorkbench/gproto
