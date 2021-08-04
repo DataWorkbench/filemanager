@@ -132,7 +132,7 @@ func init() {
 //	}
 //}
 
-func TestUpload(t *testing.T) {
+func TestUploadFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing upload")
 	fmt.Println("===================================================================")
@@ -161,7 +161,7 @@ func TestUpload(t *testing.T) {
 		reader := io.Reader(file)
 		buf := make([]byte, 4096)
 		var n int
-		stream, err := client.Upload(ctx)
+		stream, err := client.UploadFile(ctx)
 		require.Nil(t, err, "%+v", err)
 		for {
 			n, err = reader.Read(buf)
@@ -180,7 +180,7 @@ func TestUpload(t *testing.T) {
 	}
 }
 
-func TestDownload(t *testing.T) {
+func TestDownloadFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing download")
 	fmt.Println("===================================================================")
@@ -190,13 +190,13 @@ func TestDownload(t *testing.T) {
 		downloadRequest = append(downloadRequest, fmpb.DownloadRequest{ID: id})
 	}
 	var (
-		stream fmpb.FileManager_DownloadClient
+		stream fmpb.FileManager_DownloadFileClient
 		recv   *fmpb.DownloadResponse
 	)
 	for index, v := range downloadRequest {
 		f, err := os.Create(fmt.Sprintf("../download/w%d.jar", index))
 		require.Nil(t, err, "%+v", err)
-		stream, err = client.Download(ctx, &v)
+		stream, err = client.DownloadFile(ctx, &v)
 		require.Nil(t, err, "%+v", err)
 		for {
 			recv, err = stream.Recv()
@@ -212,7 +212,7 @@ func TestDownload(t *testing.T) {
 	}
 }
 
-func TestGetFile(t *testing.T) {
+func TestListFiles(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing get file list")
 	fmt.Println("===================================================================")
@@ -225,7 +225,7 @@ func TestGetFile(t *testing.T) {
 		{SpaceID: spaceID, Type: 2},
 	}
 	for _, v := range getFileRequests {
-		_, err := client.GetFile(ctx, v)
+		_, err := client.ListFiles(ctx, v)
 		require.Nil(t, err, "%+v", err)
 	}
 
@@ -245,34 +245,34 @@ func TestUpdateFile(t *testing.T) {
 		})
 	}
 	for _, v := range testUpdateRequests {
-		_, err := client.Update(ctx, v)
+		_, err := client.UpdateFile(ctx, v)
 		require.Nil(t, err, "%+v", err)
 
 	}
 }
 
-func TestDelete(t *testing.T) {
-	fmt.Println("===================================================================")
-	fmt.Println("testing deleting file")
-	fmt.Println("===================================================================")
-	var testDeleteRequests []*fmpb.DeleteFileRequest
-	for _, id := range ids {
-		testDeleteRequests = append(testDeleteRequests, &fmpb.DeleteFileRequest{
-			ID:      id,
-			SpaceID: spaceID,
-		})
-	}
-	for _, r := range testDeleteRequests {
-		_, err := client.Delete(ctx, r)
-		require.Nil(t, err, "%+v", err)
-	}
-}
-
-func TestDeleteAll(t *testing.T) {
-	fmt.Println("===================================================================")
-	fmt.Println("testing deleting all")
-	fmt.Println("===================================================================")
-	deleteAllRequest := &fmpb.DeleteFileRequest{SpaceID: spaceID}
-	_, err := client.Delete(ctx, deleteAllRequest)
-	require.Nil(t, err, "%+v", err)
-}
+//func TestDeleteFile(t *testing.T) {
+//	fmt.Println("===================================================================")
+//	fmt.Println("testing deleting file")
+//	fmt.Println("===================================================================")
+//	var testDeleteRequests []*fmpb.DeleteFileRequest
+//	for _, id := range ids {
+//		testDeleteRequests = append(testDeleteRequests, &fmpb.DeleteFileRequest{
+//			ID:      id,
+//			SpaceID: spaceID,
+//		})
+//	}
+//	for _, r := range testDeleteRequests {
+//		_, err := client.DeleteFile(ctx, r)
+//		require.Nil(t, err, "%+v", err)
+//	}
+//}
+//
+//func TestDeleteAll(t *testing.T) {
+//	fmt.Println("===================================================================")
+//	fmt.Println("testing deleting all")
+//	fmt.Println("===================================================================")
+//	deleteAllRequest := &fmpb.DeleteFileRequest{SpaceID: spaceID}
+//	_, err := client.DeleteFile(ctx, deleteAllRequest)
+//	require.Nil(t, err, "%+v", err)
+//}

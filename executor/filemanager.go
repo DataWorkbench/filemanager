@@ -48,7 +48,7 @@ func NewFileManagerExecutor(db *gorm.DB, l *glog.Logger, hdfsServer string) *Fil
 	}
 }
 
-func (ex *FileManagerExecutor) Upload(fu fmpb.FileManager_UploadServer) error {
+func (ex *FileManagerExecutor) UploadFile(fu fmpb.FileManager_UploadFileServer) error {
 	var info = FileInfo{}
 	fileId, err := ex.idGenerator.Take()
 	if err != nil {
@@ -73,7 +73,7 @@ func (ex *FileManagerExecutor) Upload(fu fmpb.FileManager_UploadServer) error {
 	})
 }
 
-func (ex *FileManagerExecutor) Download(id string, res fmpb.FileManager_DownloadServer) (err error) {
+func (ex *FileManagerExecutor) DownloadFile(id string, res fmpb.FileManager_DownloadFileServer) (err error) {
 	var (
 		fileInfo FileManager
 		client   *hdfs.Client
@@ -110,7 +110,7 @@ func (ex *FileManagerExecutor) Download(id string, res fmpb.FileManager_Download
 	}
 }
 
-func (ex *FileManagerExecutor) GetFile(ctx context.Context, id, spaceId, name, path string, fileType int32) (*fmpb.FileListResponse, error) {
+func (ex *FileManagerExecutor) ListFiles(ctx context.Context, id, spaceId, name, path string, fileType int32) (*fmpb.FileListResponse, error) {
 	db := ex.db.WithContext(ctx)
 	var (
 		isDeleted int32 = 0
@@ -177,7 +177,7 @@ func (ex *FileManagerExecutor) GetFile(ctx context.Context, id, spaceId, name, p
 	}, nil
 }
 
-func (ex *FileManagerExecutor) Update(ctx context.Context, id, name, path string, fileType int32) (*model.EmptyStruct, error) {
+func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id, name, path string, fileType int32) (*model.EmptyStruct, error) {
 	var (
 		err       error
 		fileInfo  FileManager
@@ -212,7 +212,7 @@ func (ex *FileManagerExecutor) Update(ctx context.Context, id, name, path string
 	return &model.EmptyStruct{}, nil
 }
 
-func (ex *FileManagerExecutor) Delete(ctx context.Context, id, spaceId string) (*model.EmptyStruct, error) {
+func (ex *FileManagerExecutor) DeleteFile(ctx context.Context, id, spaceId string) (*model.EmptyStruct, error) {
 	var (
 		isDeleted  int32
 		file       FileManager
@@ -260,7 +260,7 @@ func (ex *FileManagerExecutor) Delete(ctx context.Context, id, spaceId string) (
 	return &model.EmptyStruct{}, nil
 }
 
-func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadServer, fileInfo *FileInfo, fileId string) (err error) {
+func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFileServer, fileInfo *FileInfo, fileId string) (err error) {
 	var (
 		client *hdfs.Client
 		writer *hdfs.FileWriter
