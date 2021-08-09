@@ -132,7 +132,7 @@ func (ex *FileManagerExecutor) ListFiles(ctx context.Context, id, spaceId, name,
 			FilePath:    file.Path,
 			FileType:    file.Type,
 			HdfsAddress: file.Address,
-			URL:         getHdfsUrl(file.Address, file.SpaceID, file.ID, file.Name),
+			URL:         getHdfsUrl(file.Address, file.SpaceID, file.ID, file.HdfsName),
 		})
 	} else {
 		//TODO 根据文件类型查询
@@ -167,7 +167,7 @@ func (ex *FileManagerExecutor) ListFiles(ctx context.Context, id, spaceId, name,
 				FilePath:    f.Path,
 				FileType:    f.Type,
 				HdfsAddress: f.Address,
-				URL:         getHdfsUrl(f.Address, f.SpaceID, f.ID, f.Name),
+				URL:         getHdfsUrl(f.Address, f.SpaceID, f.ID, f.HdfsName),
 			})
 		}
 	}
