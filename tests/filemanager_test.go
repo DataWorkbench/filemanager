@@ -251,28 +251,23 @@ func TestUpdateFile(t *testing.T) {
 	}
 }
 
-//func TestDeleteFile(t *testing.T) {
-//	fmt.Println("===================================================================")
-//	fmt.Println("testing deleting file")
-//	fmt.Println("===================================================================")
-//	var testDeleteRequests []*fmpb.DeleteFileRequest
-//	for _, id := range ids {
-//		testDeleteRequests = append(testDeleteRequests, &fmpb.DeleteFileRequest{
-//			ID:      id,
-//			SpaceID: spaceID,
-//		})
-//	}
-//	for _, r := range testDeleteRequests {
-//		_, err := client.DeleteFile(ctx, r)
-//		require.Nil(t, err, "%+v", err)
-//	}
-//}
-//
-//func TestDeleteAll(t *testing.T) {
-//	fmt.Println("===================================================================")
-//	fmt.Println("testing deleting all")
-//	fmt.Println("===================================================================")
-//	deleteAllRequest := &fmpb.DeleteFileRequest{SpaceID: spaceID}
-//	_, err := client.DeleteFile(ctx, deleteAllRequest)
-//	require.Nil(t, err, "%+v", err)
-//}
+/*func TestDeleteFile(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing deleting file")
+	fmt.Println("===================================================================")
+	testDeleteRequests := &fmpb.DeleteFileRequest{
+		IDS:     ids,
+		SpaceID: spaceID,
+	}
+	_, err := client.DeleteFile(ctx, testDeleteRequests)
+	require.Nil(t, err, "%+v", err)
+}*/
+
+/*func TestDeleteAll(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing deleting all")
+	fmt.Println("===================================================================")
+	deleteAllRequest := &fmpb.DeleteFileRequest{SpaceID: spaceID}
+	_, err := client.DeleteFile(ctx, deleteAllRequest)
+	require.Nil(t, err, "%+v", err)
+}*/

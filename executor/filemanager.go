@@ -2,9 +2,11 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/DataWorkbench/gproto/pkg/model"
 	"io"
+	"io/fs"
 	"os"
 	"regexp"
 	"strings"
@@ -212,28 +214,33 @@ func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id, name, path st
 	return &model.EmptyStruct{}, nil
 }
 
-func (ex *FileManagerExecutor) DeleteFile(ctx context.Context, id, spaceId string) (*model.EmptyStruct, error) {
+func (ex *FileManagerExecutor) DeleteFile(ctx context.Context, ids []string, spaceId string) (*model.EmptyStruct, error) {
 	var (
-		isDeleted  int32
-		file       FileManager
-		removePath string
+		isDeleted   int32
+		removePaths []string
+		address     string
 	)
 	db := ex.db.WithContext(ctx)
 	curTime := time.Now()
 	deleteTimestamp := int32(curTime.Unix())
 	updateTime := curTime.Format(TimeFormat)
 	tx := db.Begin()
-	if id != "" {
-		if result := db.Where(&FileManager{ID: id, DeleteTimestamp: &isDeleted}).First(&file); result.RowsAffected == 0 {
-			return nil, status.Errorf(codes.NotFound, "file not exist")
+	if len(ids) != 0 {
+		for _, id := range ids {
+			var file FileManager
+			if result := db.Where(&FileManager{ID: id, DeleteTimestamp: &isDeleted}).First(&file); result.RowsAffected == 0 {
+				return nil, status.Errorf(codes.NotFound, "file not exist")
+			}
+			removePaths = append(removePaths, fileSplit+file.SpaceID+fileSplit+file.ID+"_"+file.HdfsName)
+			address = file.Address
 		}
-		if result := tx.Where(&FileManager{ID: id, DeleteTimestamp: &isDeleted}).
-			Updates(&FileManager{DeleteTimestamp: &deleteTimestamp, UpdateTime: updateTime}); result.Error != nil {
+		if err := tx.Model(&FileManager{}).Where("id IN (?) and delete_timestamp = 0", ids).
+			UpdateColumns(&FileManager{DeleteTimestamp: &deleteTimestamp, UpdateTime: updateTime}).Error; err != nil {
 			tx.Rollback()
-			return nil, result.Error
+			return nil, err
 		}
-		removePath = fileSplit + file.SpaceID + fileSplit + file.ID + "_" + file.HdfsName
 	} else {
+		var file FileManager
 		if result := db.Where(&FileManager{SpaceID: spaceId, DeleteTimestamp: &isDeleted}).Find(&file); result.RowsAffected == 0 {
 			return nil, status.Errorf(codes.NotFound, "file not exist")
 		}
@@ -242,9 +249,10 @@ func (ex *FileManagerExecutor) DeleteFile(ctx context.Context, id, spaceId strin
 			tx.Rollback()
 			return nil, result.Error
 		}
-		removePath = fileSplit + file.SpaceID + fileSplit
+		removePaths = append(removePaths, fileSplit+file.SpaceID+fileSplit)
+		address = file.Address
 	}
-	client, err := hdfs.New(file.Address)
+	client, err := hdfs.New(address)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -252,9 +260,15 @@ func (ex *FileManagerExecutor) DeleteFile(ctx context.Context, id, spaceId strin
 	defer func() {
 		_ = client.Close()
 	}()
-	if err = client.Remove(removePath); err != nil {
-		tx.Rollback()
-		return nil, err
+	for _, removePath := range removePaths {
+		if err = client.Remove(removePath); err != nil && errors.Is(&fs.PathError{
+			Op:   "remove",
+			Path: removePath,
+			Err:  errors.New("file does not exits"),
+		}, err) {
+			tx.Rollback()
+			return nil, err
+		}
 	}
 	tx.Commit()
 	return &model.EmptyStruct{}, nil
