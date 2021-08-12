@@ -85,5 +85,5 @@ func (fs *FileManagerServer) UpdateFile(ctx context.Context, req *fmpb.UpdateFil
 // @param     ID             string         "文件id"
 // @param     SpaceID        string         "工作空间id"
 func (fs *FileManagerServer) DeleteFile(ctx context.Context, req *fmpb.DeleteFileRequest) (*model.EmptyStruct, error) {
-	return fs.executor.DeleteFile(ctx, req.ID, req.SpaceID)
+	return fs.executor.DeleteFile(ctx, req.IDS, req.SpaceID)
 }
