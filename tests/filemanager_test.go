@@ -129,13 +129,13 @@ func Test_DownloadFile(t *testing.T) {
 		recv   *fmpb.DownloadResponse
 	)
 
-	f, err := os.Create(fmt.Sprintf("../download/window.jar"))
+	f, err := os.Create(fmt.Sprintf("../resources/test_download.jar"))
 	require.Nil(t, err, "%+v", err)
 	stream, err = client.DownloadFile(ctx, &fmpb.DownloadRequest{Id: jarId})
 	require.Nil(t, err, "%+v", err)
 	for {
 		recv, err = stream.Recv()
-		if err == nil && recv == nil {
+		if err == io.EOF {
 			break
 		}
 		require.Nil(t, err, "%+v", err)
