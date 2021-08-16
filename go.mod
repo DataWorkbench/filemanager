@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/DataWorkbench/common v0.0.0-20210722233213-afef7a0a06b7
 	github.com/DataWorkbench/glog v0.0.0-20201114060240-9471edb2b8cf
-	github.com/DataWorkbench/gproto v0.0.0-20210812033722-d8b83784a478
+	github.com/DataWorkbench/gproto v0.0.0-20210816081349-780267e5425e
 	github.com/DataWorkbench/loader v0.0.0-20201119073611-6f210eb11a8c
 	github.com/colinmarc/hdfs v1.1.3
 	github.com/go-playground/validator/v10 v10.4.1
@@ -15,5 +15,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gorm.io/gorm v1.20.7
 )
-
-replace github.com/DataWorkbench/gproto v0.0.0-20210812033722-d8b83784a478 => /Users/gxlevi/go/src/github.com/DataWorkbench/gproto
