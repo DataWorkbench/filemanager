@@ -34,7 +34,6 @@ var (
 	ctx       context.Context
 	initDone  bool
 	generator *idgenerator.IDGenerator
-	ids       = []string{jarId, udfId}
 	deleteIds = []string{deleteId1, deleteId2, deleteId3, deleteId4, deleteId5}
 	spaceIds  = []string{spaceId2, spaceId3}
 )
@@ -44,7 +43,7 @@ func init() {
 		return
 	}
 
-	address := "127.0.0.1:56001"
+	address := "127.0.0.1:9111"
 	lp := glog.NewDefault()
 	ctx = glog.WithContext(context.Background(), lp)
 	conn, err := grpcwrap.NewConn(ctx, &grpcwrap.ClientConfig{
@@ -131,7 +130,7 @@ func Test_DownloadFile(t *testing.T) {
 
 	f, err := os.Create(fmt.Sprintf("../resources/test_download.jar"))
 	require.Nil(t, err, "%+v", err)
-	stream, err = client.DownloadFile(ctx, &fmpb.DownloadRequest{Id: jarId})
+	stream, err = client.DownloadFile(ctx, &fmpb.DownloadRequest{FileId: jarId})
 	require.Nil(t, err, "%+v", err)
 	for {
 		recv, err = stream.Recv()
@@ -173,13 +172,13 @@ func Test_UpdateFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	var testUpdateRequests []*fmpb.UpdateFileRequest
 	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
-		Id:       jarId,
+		FileId:       jarId,
 		FileName: "test_jar.jar",
 		FilePath: "test/jar/demo",
 		FileType: 1,
 	})
 	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
-		Id:       udfId,
+		FileId:       udfId,
 		FileName: "test_udf.jar",
 		FilePath: "/test/udf/demo",
 		FileType: 2,

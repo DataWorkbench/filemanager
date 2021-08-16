@@ -43,9 +43,9 @@ func (fs *FileManagerServer) UploadFile(fu fmpb.FileManager_UploadFileServer) er
 // DownloadFile @title  文件下载
 // @description   下载hadoop文件到本地
 // @auth      gx             时间（2021/7/28   10:57 ）
-// @param     ID             string         "文件id"
+// @param     FileId             string         "文件id"
 func (fs *FileManagerServer) DownloadFile(req *fmpb.DownloadRequest, res fmpb.FileManager_DownloadFileServer) error {
-	return fs.executor.DownloadFile(req.Id, res)
+	return fs.executor.DownloadFile(req.FileId, res)
 }
 
 // ListFiles @title  文件下载
@@ -83,7 +83,7 @@ func (fs *FileManagerServer) ListFiles(ctx context.Context, req *fmpb.ListReques
 // @param     FilePath      string        "文件路径"
 // @param     FileType      int32         "文件类型"
 func (fs *FileManagerServer) UpdateFile(ctx context.Context, req *fmpb.UpdateFileRequest) (*model.EmptyStruct, error) {
-	return fs.executor.UpdateFile(ctx, req.Id, req.FileName, req.FilePath, req.FileType)
+	return fs.executor.UpdateFile(ctx, req.FileId, req.FileName, req.FilePath, req.FileType)
 }
 
 // DeleteFiles @title  根据id批量删除文件
