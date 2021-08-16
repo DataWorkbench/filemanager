@@ -1,10 +1,10 @@
 CREATE TABLE `file_manager`
 (
-    `id`               varchar(25) NOT NULL,
-    `space_id`         varchar(20) NOT NULL,
-    `name`             varchar(25) NOT NULL,
-    `hdfs_name`        varchar(25) NOT NULL,
-    `path`             varchar(25) NOT NULL,
+    `id`               varchar(25)  NOT NULL,
+    `space_id`         varchar(20)  NOT NULL,
+    `name`             varchar(25)  NOT NULL,
+    `hdfs_path`        varchar(500) NOT NULL,
+    `path`             varchar(25)  NOT NULL,
     `type`             int(1) DEFAULT 1 comment '1 jar 2 udf',
     `address`          varchar(20),
     `create_time`      varchar(20),

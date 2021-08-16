@@ -45,45 +45,67 @@ func (fs *FileManagerServer) UploadFile(fu fmpb.FileManager_UploadFileServer) er
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     ID             string         "文件id"
 func (fs *FileManagerServer) DownloadFile(req *fmpb.DownloadRequest, res fmpb.FileManager_DownloadFileServer) error {
-	return fs.executor.DownloadFile(req.ID, res)
+	return fs.executor.DownloadFile(req.Id, res)
 }
 
 // ListFiles @title  文件下载
 // @description   下载hadoop文件到本地
 // @auth      gx             时间（2021/7/28   10:57 ）
-// @param     ID             string         "根据文件id查询"
-// @param     SpaceID        string         "根据spaceId查询列表"
-// @param     Name           string         "根据文件名模糊查询"
-// @param     Path           string         "匹配路径下的全部"
-// @param     Type           int32          "文件类型查询列表"
-// @return    Total          int32          "文件总数"
-// @return    ID             string         "文件id"
-// @return    SpaceID        string         "工作空间id"
-// @return    FileName       string         "文件名"
-// @return    FilePath       string         "文件路径"
-// @return    FileType       int32          "文件类型 1 jar包文件 2 udf文件"
-// @return    HdfsAddress    string         "hadoop地址"
-// @return    URL            string         "文件的hadoop地址"
-func (fs *FileManagerServer) ListFiles(ctx context.Context, req *fmpb.FilesFilterRequest) (*fmpb.FileListResponse, error) {
-	return fs.executor.ListFiles(ctx, req.ID, req.SpaceID, req.Name, req.Path, req.Type)
+// @param     SpaceId       string         "根据spaceId查询列表"
+// @param     Limit          int32         "分页限制"
+// @param     Offset         int32         "页码"
+// @return    Total          int32         "文件总数"
+// @return    HasMode        int32         "是否有更多"
+// @return    ID             string        "文件id"
+// @return    SpaceID        string        "工作空间id"
+// @return    FileName       string        "文件名"
+// @return    FilePath       string        "文件路径"
+// @return    FileType       int32         "文件类型 1 jar包文件 2 udf文件"
+// @return    Url            string        "文件的hadoop路径"
+func (fs *FileManagerServer) ListFiles(ctx context.Context, req *fmpb.ListRequest) (*fmpb.ListResponse, error) {
+	infos, count, err := fs.executor.ListFiles(ctx, req.SpaceId, req.Limit, req.Offset)
+	if err != nil {
+		return nil, err
+	}
+	reply := &fmpb.ListResponse{
+		Infos:   infos,
+		HasMore: len(infos) >= int(req.Limit),
+		Total:   count,
+	}
+	return reply, nil
 }
 
 // UpdateFile @title  更新文件
 // @description   更新文件信息
 // @auth      gx             时间（2021/7/28   10:57 ）
-// @param     ID             string         "文件id"
-// @param     Name           string         "文件名"
-// @param     Path           string         "文件路径"
-// @param     Type           int32          "文件类型"
+// @param     Id            string        "文件id"
+// @param     FileName      string        "文件名"
+// @param     FilePath      string        "文件路径"
+// @param     FileType      int32         "文件类型"
 func (fs *FileManagerServer) UpdateFile(ctx context.Context, req *fmpb.UpdateFileRequest) (*model.EmptyStruct, error) {
-	return fs.executor.UpdateFile(ctx, req.ID, req.Name, req.Path, req.Type)
+	return fs.executor.UpdateFile(ctx, req.Id, req.FileName, req.FilePath, req.FileType)
 }
 
-// DeleteFile @title  更新文件
-// @description   更新文件信息
+// DeleteFiles @title  根据id批量删除文件
+// @description   删除文件
 // @auth      gx             时间（2021/7/28   10:57 ）
-// @param     ID             string         "文件id"
-// @param     SpaceID        string         "工作空间id"
-func (fs *FileManagerServer) DeleteFile(ctx context.Context, req *fmpb.DeleteFileRequest) (*model.EmptyStruct, error) {
-	return fs.executor.DeleteFile(ctx, req.IDS, req.SpaceID)
+// @param     Ids           string         "文件id"
+func (fs *FileManagerServer) DeleteFiles(ctx context.Context, req *fmpb.DeleteFilesRequest) (*model.EmptyStruct, error) {
+	return fs.executor.DeleteFiles(ctx, req.Ids)
+}
+
+// DeleteAllFiles @title  根据space_id批量删除文件
+// @description   删除文件
+// @auth      gx             时间（2021/7/28   10:57 ）
+// @param     SpaceIds           string    "工作空间id"
+func (fs *FileManagerServer) DeleteAllFiles(ctx context.Context, req *fmpb.DeleteAllFilesRequest) (*model.EmptyStruct, error) {
+	return fs.executor.DeleteAllFiles(ctx, req.SpaceIds)
+}
+
+// DescribeFile @title
+// @description   根据id查询文件信息
+// @auth      gx             时间（2021/7/28   10:57 ）
+// @param     id           string    "文件id"
+func (fs *FileManagerServer) DescribeFile(ctx context.Context,req *fmpb.DescribeRequest) (*fmpb.FileInfoResponse, error) {
+	return fs.executor.DescribeFile(ctx,req.Id)
 }

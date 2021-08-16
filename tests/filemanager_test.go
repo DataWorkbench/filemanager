@@ -16,31 +16,27 @@ import (
 	"github.com/DataWorkbench/gproto/pkg/fmpb"
 )
 
+const (
+	spaceId   = "wks-0123456789012345"
+	spaceId2  = "wks-0123456789012346"
+	spaceId3  = "wks-0123456789012347"
+	jarId     = "file-04bbca8755d62131"
+	udfId     = "file-04bbca8755d62132"
+	deleteId1 = "file-04bbca8755d62133"
+	deleteId2 = "file-04bbca8755d62134"
+	deleteId3 = "file-04bbca8755d62135"
+	deleteId4 = "file-04bbca8755d62136"
+	deleteId5 = "file-04bbca8755d62137"
+)
+
 var (
 	client    fmpb.FileManagerClient
 	ctx       context.Context
 	initDone  bool
 	generator *idgenerator.IDGenerator
-	ids       []string
-)
-
-const (
-	spaceID = "wks-0123456789012345"
-	tpl     = `<html>
-<head>
-<title>上传文件</title>
-</head>
-<body>
-<form enctype="multipart/form-data" action="/upload2" method="post">
-<input type="file" name="uploadfile">
-<input type="text" placeholder="输入文件名" name = "filename">
-<input type="text" placeholder="输入目录" name = "dir">
-<input type="text" placeholder="输入文件类型" name = "type">
-<input type="hidden" name="token" value="{...{.}...}">
-<input type="submit" value="upload">
-</form>
-</body>
-</html>`
+	ids       = []string{jarId, udfId}
+	deleteIds = []string{deleteId1, deleteId2, deleteId3, deleteId4, deleteId5}
+	spaceIds  = []string{spaceId2, spaceId3}
 )
 
 func init() {
@@ -67,83 +63,28 @@ func init() {
 	ctx = grpcwrap.ContextWithRequest(context.Background(), ln, reqId)
 }
 
-//func TestUpload(t *testing.T) {
-//	var uploadRequest *fmpb.UploadRequest
-//	mainInit(t)
-//	index := func(w http.ResponseWriter, r *http.Request) {
-//		w.Write([]byte(tpl))
-//	}
-//	upload := func(w http.ResponseWriter, r *http.Request) {
-//		err := r.ParseMultipartForm(32 << 20)
-//		require.Nil(t, err, "%+v", err)
-//		file, _, err := r.FormFile("uploadfile")
-//		filename := r.FormValue("filename")
-//		filetype := r.FormValue("type")
-//		dir := r.FormValue("dir")
-//		defer file.Close()
-//		require.Nil(t, err, "%+v", err)
-//		reader := io.Reader(file)
-//		buf := make([]byte, 4096)
-//		var n int
-//		var init bool
-//		id, err := generator.Take()
-//		stream, err := client.UploadStream(ctx)
-//		require.Nil(t, err, "%+v", err)
-//
-//		for {
-//			n, err = reader.Read(buf)
-//			if err != io.EOF {
-//				require.Nil(t, err, "%+v", err)
-//			}
-//			if n == 0 {
-//				break
-//			}
-//
-//			var i int
-//			i, err = strconv.Atoi(filetype)
-//			require.Nil(t, err, "%+v", err)
-//			if !init {
-//				uploadRequest = &fmpb.UploadRequest{
-//					ID:          id,
-//					SpaceID:     spaceID,
-//					Data:        buf[:n],
-//					FileName:    filename,
-//					FileDir:     dir,
-//					FileType:    int32(i),
-//				}
-//			} else {
-//				uploadRequest = &fmpb.UploadRequest{
-//					Data: buf[:n],
-//				}
-//			}
-//			err = stream.Send(uploadRequest)
-//			require.Nil(t, err, "%+v", err)
-//		}
-//		recv, err := stream.CloseAndRecv()
-//		require.Nil(t, err, "%+v", err)
-//		fmt.Println(recv.String())
-//		return
-//	}
-//	http.HandleFunc("/", index)
-//	http.HandleFunc("/upload2", upload)
-//	err := http.ListenAndServe(":8888", nil)
-//	if err == io.EOF {
-//		return
-//	}
-//}
-
-func TestUploadFile(t *testing.T) {
+func Test_UploadFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing upload")
 	fmt.Println("===================================================================")
 	uploadRequest := []*fmpb.UploadFileRequest{
-		{SpaceID: spaceID, FileType: 1, FileName: "window01.jar", FilePath: "/jar/demo"},
-		{SpaceID: spaceID, FileType: 1, FileName: "window02.jar", FilePath: "/jar/demo"},
-		{SpaceID: spaceID, FileType: 1, FileName: "window03.jar", FilePath: "/jar/demo/x"},
-		{SpaceID: spaceID, FileType: 1, FileName: "window01.jar", FilePath: ""},
-		{SpaceID: spaceID, FileType: 1, FileName: "window02.jar", FilePath: "/xxx/abc/ex"},
-		{SpaceID: spaceID, FileType: 1, FileName: "window03.jar", FilePath: "/"},
-		{SpaceID: spaceID, FileType: 2, FileName: "udf01.jar", FilePath: "/udf/demo"},
+		{SpaceId: spaceId2, FileType: 1, FileName: "window01.jar", FilePath: "/jar/demo"},
+		{SpaceId: spaceId2, FileType: 1, FileName: "window02.jar", FilePath: "/jar/demo"},
+		{SpaceId: spaceId2, FileType: 1, FileName: "window03.jar", FilePath: "/jar/demo/x"},
+		{SpaceId: spaceId2, FileType: 1, FileName: "window01.jar", FilePath: ""},
+		{SpaceId: spaceId2, FileType: 1, FileName: "window02.jar", FilePath: "/xxx/abc/ex"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "window01.jar", FilePath: "/jar/demo"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "window02.jar", FilePath: "/jar/demo"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "window03.jar", FilePath: "/jar/demo/x"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "window01.jar", FilePath: ""},
+		{SpaceId: spaceId3, FileType: 1, FileName: "window02.jar", FilePath: "/xxx/abc/ex"},
+		{Id: deleteId1, SpaceId: spaceId3, FileType: 1, FileName: "delete01.jar", FilePath: "/jar/demo"},
+		{Id: deleteId2, SpaceId: spaceId3, FileType: 1, FileName: "delete02.jar", FilePath: "/jar/demo"},
+		{Id: deleteId3, SpaceId: spaceId3, FileType: 1, FileName: "delete03.jar", FilePath: "/jar/demo/x"},
+		{Id: deleteId4, SpaceId: spaceId3, FileType: 1, FileName: "delete01.jar", FilePath: ""},
+		{Id: deleteId5, SpaceId: spaceId3, FileType: 1, FileName: "delete02.jar", FilePath: "/xxx/abc/ex"},
+		{Id: jarId, SpaceId: spaceId, FileType: 2, FileName: "jar.jar", FilePath: "/"},
+		{Id: udfId, SpaceId: spaceId, FileType: 1, FileName: "udf.jar", FilePath: ""},
 	}
 
 	for index, v := range uploadRequest {
@@ -174,76 +115,75 @@ func TestUploadFile(t *testing.T) {
 			err = stream.Send(v)
 			require.Nil(t, err, "%+v", err)
 		}
-		rsp, err := stream.CloseAndRecv()
+		_, err = stream.CloseAndRecv()
 		require.Nil(t, err, "%+v", err)
-		ids = append(ids, rsp.ID)
 	}
 }
 
-func TestDownloadFile(t *testing.T) {
+func Test_DownloadFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing download")
 	fmt.Println("===================================================================")
-
-	var downloadRequest []fmpb.DownloadRequest
-	for _, id := range ids {
-		downloadRequest = append(downloadRequest, fmpb.DownloadRequest{ID: id})
-	}
 	var (
 		stream fmpb.FileManager_DownloadFileClient
 		recv   *fmpb.DownloadResponse
 	)
-	for index, v := range downloadRequest {
-		f, err := os.Create(fmt.Sprintf("../download/w%d.jar", index))
-		require.Nil(t, err, "%+v", err)
-		stream, err = client.DownloadFile(ctx, &v)
-		require.Nil(t, err, "%+v", err)
-		for {
-			recv, err = stream.Recv()
-			if err == io.EOF || recv == nil {
-				err = nil
-				break
-			}
-			require.Nil(t, err, "%+v", err)
-			_, err = f.Write(recv.Data)
-			require.Nil(t, err, "%+v", err)
+
+	f, err := os.Create(fmt.Sprintf("../download/window.jar"))
+	require.Nil(t, err, "%+v", err)
+	stream, err = client.DownloadFile(ctx, &fmpb.DownloadRequest{Id: jarId})
+	require.Nil(t, err, "%+v", err)
+	for {
+		recv, err = stream.Recv()
+		if err == nil && recv == nil {
+			break
 		}
-		_ = f.Close()
+		require.Nil(t, err, "%+v", err)
+		_, err = f.Write(recv.Data)
+		require.Nil(t, err, "%+v", err)
 	}
+	_ = f.Close()
+
 }
 
-func TestListFiles(t *testing.T) {
+func Test_DescribeFile(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing describe")
+	fmt.Println("===================================================================")
+	_, err := client.DescribeFile(ctx, &fmpb.DescribeRequest{Id: jarId})
+	require.Nil(t, err, "%+v", err)
+}
+
+func Test_ListFiles(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing get file list")
 	fmt.Println("===================================================================")
-	getFileRequests := []*fmpb.FilesFilterRequest{
-		{ID: ids[0], SpaceID: spaceID},
-		{SpaceID: spaceID},
-		{SpaceID: spaceID, Name: "ud"},
-		{SpaceID: spaceID, Name: "wind"},
-		{SpaceID: spaceID, Name: "wind", Path: "/jar/demo/"},
-		{SpaceID: spaceID, Type: 2},
+	getFileRequests := []*fmpb.ListRequest{
+		{SpaceId: spaceId2, Limit: 3, Offset: 2},
 	}
 	for _, v := range getFileRequests {
 		_, err := client.ListFiles(ctx, v)
 		require.Nil(t, err, "%+v", err)
 	}
-
 }
 
-func TestUpdateFile(t *testing.T) {
+func Test_UpdateFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing updating file")
 	fmt.Println("===================================================================")
 	var testUpdateRequests []*fmpb.UpdateFileRequest
-	for index, id := range ids {
-		testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
-			ID:   id,
-			Name: fmt.Sprintf("window%d.jar", index),
-			Type: 2,
-			Path: fmt.Sprintf("/jar/demo%d/abc/", index),
-		})
-	}
+	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
+		Id:       jarId,
+		FileName: "test_jar.jar",
+		FilePath: "test/jar/demo",
+		FileType: 1,
+	})
+	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
+		Id:       udfId,
+		FileName: "test_udf.jar",
+		FilePath: "/test/udf/demo",
+		FileType: 2,
+	})
 	for _, v := range testUpdateRequests {
 		_, err := client.UpdateFile(ctx, v)
 		require.Nil(t, err, "%+v", err)
@@ -251,23 +191,22 @@ func TestUpdateFile(t *testing.T) {
 	}
 }
 
-/*func TestDeleteFile(t *testing.T) {
+func Test_DeleteFiles(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting file")
 	fmt.Println("===================================================================")
-	testDeleteRequests := &fmpb.DeleteFileRequest{
-		IDS:     ids,
-		SpaceID: spaceID,
+	testDeleteRequests := &fmpb.DeleteFilesRequest{
+		Ids: deleteIds,
 	}
-	_, err := client.DeleteFile(ctx, testDeleteRequests)
+	_, err := client.DeleteFiles(ctx, testDeleteRequests)
 	require.Nil(t, err, "%+v", err)
-}*/
+}
 
-/*func TestDeleteAll(t *testing.T) {
+func Test_DeleteAll(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting all")
 	fmt.Println("===================================================================")
-	deleteAllRequest := &fmpb.DeleteFileRequest{SpaceID: spaceID}
-	_, err := client.DeleteFile(ctx, deleteAllRequest)
+	deleteAllRequest := &fmpb.DeleteAllFilesRequest{SpaceIds: spaceIds}
+	_, err := client.DeleteAllFiles(ctx, deleteAllRequest)
 	require.Nil(t, err, "%+v", err)
-}*/
+}

@@ -15,3 +15,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gorm.io/gorm v1.20.7
 )
+replace (
+	github.com/DataWorkbench/gproto v0.0.0-20210812033722-d8b83784a478 => /Users/gxlevi/go/src/github.com/DataWorkbench/gproto
+)

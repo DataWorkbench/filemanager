@@ -8,7 +8,7 @@ type FileManager struct {
 	ID              string `gorm:"column:id;primaryKey;type:varchar(25);not null" json:"id"`
 	SpaceID         string `gorm:"column:space_id;not null" json:"space_id"`
 	Name            string `gorm:"column:name;type:varchar(25);not null" json:"name"`
-	HdfsName        string `gorm:"column:hdfs_name;type:varchar(25);not null" json:"hdfs_name"`
+	HdfsPath        string `gorm:"column:hdfs_path;type:varchar(500);not null" json:"hdfs_path"`
 	Path            string `gorm:"column:path;type:varchar(25);not null" json:"path"`
 	Type            int32  `gorm:"column:type;type:int(1)" json:"type"`
 	Address         string `gorm:"column:address" json:"address"`
