@@ -6,7 +6,6 @@ import (
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/DataWorkbench/gproto/pkg/model"
 	"io"
-	"io/fs"
 	"os"
 	"regexp"
 	"strings"
@@ -208,7 +207,7 @@ func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*
 		_ = client.Close()
 	}()
 	for _, removePath := range removePaths {
-		if err = client.Remove(removePath); err != nil && errors.Is(&fs.PathError{
+		if err = client.Remove(removePath); err != nil && errors.Is(&os.PathError{
 			Op:   "remove",
 			Path: removePath,
 			Err:  errors.New("file does not exits"),
@@ -250,7 +249,7 @@ func (ex *FileManagerExecutor) DeleteAllFiles(ctx context.Context, spaceIds []st
 	}()
 	for _, removePath := range spaceIds {
 		removePath = fileSplit + removePath
-		if err = client.Remove(removePath); err != nil && errors.Is(&fs.PathError{
+		if err = client.Remove(removePath); err != nil && errors.Is(&os.PathError{
 			Op:   "remove",
 			Path: removePath,
 			Err:  errors.New("file does not exits"),
