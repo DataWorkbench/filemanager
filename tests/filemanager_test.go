@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/DataWorkbench/common/constants"
 	"github.com/DataWorkbench/common/grpcwrap"
@@ -188,6 +189,7 @@ func Test_DeleteAll(t *testing.T) {
 }
 
 func Test_UpdateFile(t *testing.T) {
+	time.Sleep(time.Second * 2)
 	fmt.Println("===================================================================")
 	fmt.Println("testing updating file")
 	fmt.Println("===================================================================")

@@ -156,7 +156,6 @@ func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id, virtualPath s
 		return nil, qerror.ResourceAlreadyExists
 	}
 
-	fileInfo.UpdateTime = time.Now().Format(TimeFormat)
 	if err = db.Save(&fileInfo).Error; err != nil {
 		return nil, err
 	}
@@ -184,9 +183,8 @@ func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*
 
 	curTime := time.Now()
 	deleteTimestamp := int32(curTime.Unix())
-	updateTime := curTime.Format(TimeFormat)
 	if err := tx.Model(&FileManager{}).Where("delete_timestamp = 0 AND id IN (?)", ids).
-		UpdateColumns(&FileManager{DeleteTimestamp: &deleteTimestamp, UpdateTime: updateTime}).Error; err != nil {
+		UpdateColumns(&FileManager{DeleteTimestamp: &deleteTimestamp}).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -225,9 +223,8 @@ func (ex *FileManagerExecutor) DeleteAllFiles(ctx context.Context, spaceIds []st
 	tx := db.Begin()
 	curTime := time.Now()
 	deleteTimestamp := int32(curTime.Unix())
-	updateTime := curTime.Format(TimeFormat)
 	if err := tx.Model(&FileManager{}).Where("space_id IN (?) and delete_timestamp = 0", spaceIds).
-		UpdateColumns(&FileManager{DeleteTimestamp: &deleteTimestamp, UpdateTime: updateTime}).Error; err != nil {
+		UpdateColumns(&FileManager{DeleteTimestamp: &deleteTimestamp}).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -366,15 +363,12 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFil
 func (ex *FileManagerExecutor) bindingData(ctx context.Context, id string, info *FileManager) (err error) {
 	db := ex.db.WithContext(ctx)
 	var isDeleted int32 = 0
-	updateTime := time.Now().Format(TimeFormat)
 	fileManger := FileManager{
 		ID:              id,
 		SpaceID:         info.SpaceID,
 		VirtualPath:     info.VirtualPath,
 		VirtualName:     info.VirtualName,
 		HdfsPath:        info.HdfsPath,
-		CreateTime:      updateTime,
-		UpdateTime:      updateTime,
 		DeleteTimestamp: &isDeleted,
 	}
 	if info.Type > 0 {
