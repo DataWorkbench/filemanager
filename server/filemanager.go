@@ -24,18 +24,9 @@ func NewFileManagerServer(executor *executor.FileManagerExecutor) *FileManagerSe
 // @description   上传文件到hadoop文件系统
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     SpaceID        string         "工作空间id"
-// @param     FileName       string         "文件名"
-// @param     FilePath       string         "文件路径"
+// @param     FileName       string         "文件全路径名"
 // @param     FileType       int32          "文件类型 1 jar包文件 2 udf文件"
 // @param     SpaceID        string         "工作空间"
-// @param     SpaceID        string         "工作空间"
-// @return    ID             string         "文件id"
-// @return    SpaceID        string         "工作空间id"
-// @return    FileName       string         "文件名"
-// @return    FilePath       string         "文件路径"
-// @return    FileType       int32          "文件类型 1 jar包文件 2 udf文件"
-// @return    HdfsAddress    string         "hadoop地址"
-// @return    URL            string         "文件的hadoop地址"
 func (fs *FileManagerServer) UploadFile(fu fmpb.FileManager_UploadFileServer) error {
 	return fs.executor.UploadFile(fu)
 }
@@ -83,7 +74,7 @@ func (fs *FileManagerServer) ListFiles(ctx context.Context, req *fmpb.ListReques
 // @param     FilePath      string        "文件路径"
 // @param     FileType      int32         "文件类型"
 func (fs *FileManagerServer) UpdateFile(ctx context.Context, req *fmpb.UpdateFileRequest) (*model.EmptyStruct, error) {
-	return fs.executor.UpdateFile(ctx, req.FileId, req.FileName, req.FilePath, req.FileType)
+	return fs.executor.UpdateFile(ctx, req.FileId, req.FileName, req.FileType)
 }
 
 // DeleteFiles @title  根据id批量删除文件

@@ -31,14 +31,6 @@ const (
 	fileSplit  = "/"
 )
 
-type FileInfo struct {
-	SpaceID  *string
-	FileName *string
-	FilePath *string
-	HdfsPath *string
-	FileType *int32
-}
-
 func NewFileManagerExecutor(db *gorm.DB, l *glog.Logger, hdfsServer string) *FileManagerExecutor {
 	return &FileManagerExecutor{
 		db:          db,
@@ -58,7 +50,7 @@ func (ex *FileManagerExecutor) UploadFile(fu fmpb.FileManager_UploadFileServer) 
 	if fileId, err = ex.uploadStreamHandler(fu, &info, fileId); err != nil {
 		return err
 	}
-	if err = ex.bindingData(fu.Context(), fileId, ex.hdfsServer, &info); err != nil {
+	if err = ex.bindingData(fu.Context(), fileId, &info); err != nil {
 		client, _ := hdfs.New(ex.hdfsServer)
 		defer func() {
 			_ = client.Close()
@@ -79,7 +71,7 @@ func (ex *FileManagerExecutor) DownloadFile(id string, res fmpb.FileManager_Down
 	if err = db.Where("id = ?", id).First(&fileInfo).Error; err != nil {
 		return
 	}
-	if client, err = hdfs.New(fileInfo.Address); err != nil {
+	if client, err = hdfs.New(ex.hdfsServer); err != nil {
 		return
 	}
 	defer func() {
@@ -92,7 +84,7 @@ func (ex *FileManagerExecutor) DownloadFile(id string, res fmpb.FileManager_Down
 	n := 0
 	for {
 		n, err = reader.Read(buf)
-		if err == io.EOF || n == 0 {
+		if err == io.EOF && n == 0 {
 			return nil
 		}
 		if err != nil {
@@ -125,21 +117,22 @@ func (ex *FileManagerExecutor) ListFiles(ctx context.Context, spaceId string, li
 		rsp = append(rsp, &fmpb.FileInfoResponse{
 			Id:       file.ID,
 			SpaceId:  file.SpaceID,
-			FileName: file.Name,
-			FilePath: file.Path,
+			FileName: file.VirtualName,
+			FilePath: file.VirtualPath,
 			FileType: file.Type,
 		})
 	}
 	return
 }
 
-func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id, name, path string, fileType int32) (*model.EmptyStruct, error) {
+func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id, virtualPath string, fileType int32) (*model.EmptyStruct, error) {
 	var (
 		err       error
 		fileInfo  FileManager
 		isDeleted int32
+		fileName  string
 	)
-	if err = checkFileDir(&path); err != nil {
+	if fileName, err = checkAndGetFile(&virtualPath); err != nil {
 		return nil, err
 	}
 	db := ex.db.WithContext(ctx)
@@ -148,20 +141,22 @@ func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id, name, path st
 	if result := db.First(&fileInfo); result.RowsAffected == 0 {
 		return nil, qerror.ResourceNotExists
 	}
-	if name != "" {
-		fileInfo.Name = name
-		tDb = tDb.Where(FileManager{Name: name})
+	if virtualPath != "" {
+		fileInfo.VirtualPath = virtualPath
+		tDb = tDb.Where(FileManager{VirtualPath: virtualPath})
 	}
-	if path != "" {
-		fileInfo.Path = path
-		tDb = tDb.Where(FileManager{Path: path})
+	if fileName != "" {
+		fileInfo.VirtualName = fileName
+		tDb = tDb.Where(FileManager{VirtualName: fileName})
 	}
 	if fileType > 0 {
 		fileInfo.Type = fileType
 	}
-	if result := tDb.Debug().Where(FileManager{SpaceID: fileInfo.SpaceID, Address: fileInfo.Address, DeleteTimestamp: &isDeleted}).Find(&FileManager{}); result.RowsAffected > 0 {
+	if result := tDb.Debug().Where(FileManager{SpaceID: fileInfo.SpaceID, DeleteTimestamp: &isDeleted}).Find(&FileManager{}); result.RowsAffected > 0 {
 		return nil, qerror.ResourceAlreadyExists
 	}
+
+	fileInfo.UpdateTime = time.Now().Format(TimeFormat)
 	if err = db.Save(&fileInfo).Error; err != nil {
 		return nil, err
 	}
@@ -172,7 +167,6 @@ func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*
 	var (
 		isDeleted   int32
 		removePaths []string
-		address     string
 	)
 	db := ex.db.WithContext(ctx)
 	if len(ids) == 0 {
@@ -186,7 +180,6 @@ func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*
 			return nil, qerror.ResourceNotExists
 		}
 		removePaths = append(removePaths, file.HdfsPath)
-		address = file.Address
 	}
 
 	curTime := time.Now()
@@ -198,7 +191,7 @@ func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*
 		return nil, err
 	}
 
-	client, err := hdfs.New(address)
+	client, err := hdfs.New(ex.hdfsServer)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -271,22 +264,24 @@ func (ex *FileManagerExecutor) DescribeFile(ctx context.Context, id string) (*fm
 	if db.Where(FileManager{ID: id, DeleteTimestamp: &isDeleted}).First(&file).RowsAffected == 0 {
 		return nil, qerror.ResourceNotExists
 	}
+	fileName, _ := checkAndGetFile(&file.VirtualPath)
 	var rsp = &fmpb.FileInfoResponse{
 		Id:       id,
 		SpaceId:  file.SpaceID,
-		FileName: file.Name,
-		FilePath: file.Path,
+		FileName: fileName,
+		FilePath: file.VirtualPath,
 		FileType: file.Type,
-		Url:      "hdfs://" + file.Address + file.HdfsPath,
+		Url:      "hdfs://" + ex.hdfsServer + file.HdfsPath,
 	}
 	return rsp, nil
 }
 
 func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFileServer, fileInfo *FileManager, fileId string) (newFileId string, err error) {
 	var (
-		client *hdfs.Client
-		writer *hdfs.FileWriter
-		recv   *fmpb.UploadFileRequest
+		client   *hdfs.Client
+		writer   *hdfs.FileWriter
+		recv     *fmpb.UploadFileRequest
+		fileName string
 	)
 	if recv, err = fu.Recv(); err != nil {
 		return
@@ -294,38 +289,34 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFil
 
 	if recv != nil {
 		//TODO 测试可以传id
-		if recv.Id != "" {
-			fileId = recv.Id
+		if recv.FileId != "" {
+			fileId = recv.FileId
 		}
 		newFileId = fileId
 		fileInfo.SpaceID = recv.SpaceId
 		fileInfo.Type = recv.FileType
-		fileInfo.Name = recv.FileName
 		hdfsFileDir := fileSplit + recv.SpaceId + fileSplit
-		fileInfo.HdfsPath = hdfsFileDir + fileId + "_" + fileInfo.Name
-		if err = checkFileDir(&recv.FilePath); err != nil {
+		if fileName, err = checkAndGetFile(&recv.FileName); err != nil {
 			return
 		}
-		fileInfo.Path = recv.FilePath
+		fileInfo.VirtualPath = recv.FileName
+		fileInfo.VirtualName = fileName
+		fileInfo.HdfsPath = hdfsFileDir + fileId + "_" + fileName
 		var isDeleted int32
 		db := ex.db.WithContext(fu.Context())
-		//TODO 数据库检查是否重复创建
+
 		if result := db.Where(FileManager{
 			SpaceID:         fileInfo.SpaceID,
-			Name:            fileInfo.Name,
-			Path:            fileInfo.Path,
-			Address:         ex.hdfsServer,
+			VirtualPath:     fileInfo.VirtualPath,
+			VirtualName:     fileInfo.VirtualName,
 			DeleteTimestamp: &isDeleted,
 		}).Find(&FileManager{}); result.RowsAffected > 0 {
 			err = qerror.ResourceAlreadyExists
 			return
 		}
-		//TODO hdfs路径
-
 		if client, err = hdfs.New(ex.hdfsServer); err != nil {
 			return
 		}
-		//TODO 释放client
 		defer func() {
 			if client != nil {
 				_ = client.Close()
@@ -343,7 +334,6 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFil
 				return
 			}
 		}
-		//TODO 释放writer
 		defer func() {
 			if err2 := writer.Close(); err2 != nil {
 				_ = client.Remove(fileInfo.HdfsPath)
@@ -356,8 +346,7 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFil
 		for {
 			recv, err = fu.Recv()
 			if err == io.EOF {
-				err = nil
-				return
+				return fileId, nil
 			}
 
 			if err != nil {
@@ -374,17 +363,16 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFil
 	return
 }
 
-func (ex *FileManagerExecutor) bindingData(ctx context.Context, id, fileAddress string, info *FileManager) (err error) {
+func (ex *FileManagerExecutor) bindingData(ctx context.Context, id string, info *FileManager) (err error) {
 	db := ex.db.WithContext(ctx)
 	var isDeleted int32 = 0
 	updateTime := time.Now().Format(TimeFormat)
 	fileManger := FileManager{
 		ID:              id,
 		SpaceID:         info.SpaceID,
-		Name:            info.Name,
+		VirtualPath:     info.VirtualPath,
+		VirtualName:     info.VirtualName,
 		HdfsPath:        info.HdfsPath,
-		Path:            info.Path,
-		Address:         fileAddress,
 		CreateTime:      updateTime,
 		UpdateTime:      updateTime,
 		DeleteTimestamp: &isDeleted,
@@ -398,27 +386,23 @@ func (ex *FileManagerExecutor) bindingData(ctx context.Context, id, fileAddress 
 	return
 }
 
-func checkFileDir(path *string) (err error) {
-	if *path == "" {
-		*path = fileSplit
+func checkAndGetFile(path *string) (fileName string, err error) {
+	if !strings.HasSuffix(*path, ".jar") {
+		err = qerror.InvalidParams.Format("fileName")
 		return
-	}
-	if *path == fileSplit {
-		return
-	}
-	*path = strings.ReplaceAll(*path, "\\", fileSplit)
-	var match bool
-	dirReg := `^\/(\w+\/?)+$`
-	if !strings.HasSuffix(*path, fileSplit) {
-		*path = *path + fileSplit
 	}
 	if !strings.HasPrefix(*path, fileSplit) {
 		*path = fileSplit + *path
 	}
-	if match, err = regexp.Match(dirReg, []byte(*path)); err != nil {
+	filePath := *path
+	fileName = filePath[strings.LastIndex(filePath, fileSplit)+1:]
+	if *path = filePath[:strings.LastIndex(filePath, fileSplit)+1]; strings.EqualFold(*path, fileSplit) {
 		return
-	} else if !match {
+	}
+	dirReg := `^\/(\w+\/?)+$`
+	if ok, _ := regexp.Match(dirReg, []byte(*path)); !ok {
 		err = qerror.InvalidParams.Format("filePath")
+		return
 	}
 	return
 }

@@ -3,11 +3,10 @@ package tests
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"io"
 	"os"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/DataWorkbench/common/constants"
 	"github.com/DataWorkbench/common/grpcwrap"
@@ -67,23 +66,23 @@ func Test_UploadFile(t *testing.T) {
 	fmt.Println("testing upload")
 	fmt.Println("===================================================================")
 	uploadRequest := []*fmpb.UploadFileRequest{
-		{SpaceId: spaceId2, FileType: 1, FileName: "window01.jar", FilePath: "/jar/demo"},
-		{SpaceId: spaceId2, FileType: 1, FileName: "window02.jar", FilePath: "/jar/demo"},
-		{SpaceId: spaceId2, FileType: 1, FileName: "window03.jar", FilePath: "/jar/demo/x"},
-		{SpaceId: spaceId2, FileType: 1, FileName: "window01.jar", FilePath: ""},
-		{SpaceId: spaceId2, FileType: 1, FileName: "window02.jar", FilePath: "/xxx/abc/ex"},
-		{SpaceId: spaceId3, FileType: 1, FileName: "window01.jar", FilePath: "/jar/demo"},
-		{SpaceId: spaceId3, FileType: 1, FileName: "window02.jar", FilePath: "/jar/demo"},
-		{SpaceId: spaceId3, FileType: 1, FileName: "window03.jar", FilePath: "/jar/demo/x"},
-		{SpaceId: spaceId3, FileType: 1, FileName: "window01.jar", FilePath: ""},
-		{SpaceId: spaceId3, FileType: 1, FileName: "window02.jar", FilePath: "/xxx/abc/ex"},
-		{Id: deleteId1, SpaceId: spaceId3, FileType: 1, FileName: "delete01.jar", FilePath: "/jar/demo"},
-		{Id: deleteId2, SpaceId: spaceId3, FileType: 1, FileName: "delete02.jar", FilePath: "/jar/demo"},
-		{Id: deleteId3, SpaceId: spaceId3, FileType: 1, FileName: "delete03.jar", FilePath: "/jar/demo/x"},
-		{Id: deleteId4, SpaceId: spaceId3, FileType: 1, FileName: "delete01.jar", FilePath: ""},
-		{Id: deleteId5, SpaceId: spaceId3, FileType: 1, FileName: "delete02.jar", FilePath: "/xxx/abc/ex"},
-		{Id: jarId, SpaceId: spaceId, FileType: 2, FileName: "jar.jar", FilePath: "/"},
-		{Id: udfId, SpaceId: spaceId, FileType: 1, FileName: "udf.jar", FilePath: ""},
+		{SpaceId: spaceId2, FileType: 1, FileName: "/jar/demo/window01.jar"},
+		{SpaceId: spaceId2, FileType: 1, FileName: "jar/demo/window02.jar"},
+		{SpaceId: spaceId2, FileType: 1, FileName: "/jar/demo/x/window03.jar"},
+		{SpaceId: spaceId2, FileType: 1, FileName: "window01.jar"},
+		{SpaceId: spaceId2, FileType: 1, FileName: "/window02.jar"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/window01.jar"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "jar/demo/window02.jar"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/x/window03.jar"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "window01.jar"},
+		{SpaceId: spaceId3, FileType: 1, FileName: "/xxx/abc/ex/window02.jar"},
+		{FileId: deleteId1, SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/delete01.jar"},
+		{FileId: deleteId2, SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/delete02.jar"},
+		{FileId: deleteId3, SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/x/delete03.jar"},
+		{FileId: deleteId4, SpaceId: spaceId3, FileType: 1, FileName: "delete01.jar"},
+		{FileId: deleteId5, SpaceId: spaceId3, FileType: 1, FileName: "xxx/abc/ex/delete02.jar"},
+		{FileId: jarId, SpaceId: spaceId, FileType: 2, FileName: "/jar.jar"},
+		{FileId: udfId, SpaceId: spaceId, FileType: 1, FileName: "udf.jar"},
 	}
 
 	for index, v := range uploadRequest {
@@ -168,30 +167,6 @@ func Test_ListFiles(t *testing.T) {
 	}
 }
 
-func Test_UpdateFile(t *testing.T) {
-	fmt.Println("===================================================================")
-	fmt.Println("testing updating file")
-	fmt.Println("===================================================================")
-	var testUpdateRequests []*fmpb.UpdateFileRequest
-	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
-		FileId:   jarId,
-		FileName: "test_jar.jar",
-		FilePath: "test/jar/demo",
-		FileType: 1,
-	})
-	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
-		FileId:   udfId,
-		FileName: "test_udf.jar",
-		FilePath: "/test/udf/demo",
-		FileType: 2,
-	})
-	for _, v := range testUpdateRequests {
-		_, err := client.UpdateFile(ctx, v)
-		require.Nil(t, err, "%+v", err)
-
-	}
-}
-
 func Test_DeleteFiles(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting file")
@@ -210,4 +185,25 @@ func Test_DeleteAll(t *testing.T) {
 	deleteAllRequest := &fmpb.DeleteAllFilesRequest{SpaceIds: spaceIds}
 	_, err := client.DeleteAllFiles(ctx, deleteAllRequest)
 	require.Nil(t, err, "%+v", err)
+}
+
+func Test_UpdateFile(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing updating file")
+	fmt.Println("===================================================================")
+	var testUpdateRequests []*fmpb.UpdateFileRequest
+	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
+		FileId:   jarId,
+		FileName: "test/jar/demo/test_jar.jar",
+		FileType: 1,
+	})
+	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
+		FileId:   udfId,
+		FileName: "/test/udf/demo/test_udf.jar",
+		FileType: 2,
+	})
+	for _, v := range testUpdateRequests {
+		_, err := client.UpdateFile(ctx, v)
+		require.Nil(t, err, "%+v", err)
+	}
 }
