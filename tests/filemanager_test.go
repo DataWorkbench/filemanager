@@ -89,10 +89,12 @@ func Test_UploadFile(t *testing.T) {
 	for index, v := range uploadRequest {
 		var file *os.File
 		var err error
-		if index != len(uploadRequest)-1 {
-			file, err = os.Open("../resources/WindowJoin.jar")
-		} else {
+		if index == len(uploadRequest)-1 {
 			file, err = os.Open("../resources/udf.jar")
+		} else if index == len(uploadRequest)-2 {
+			file, err = os.Open("../resources/frauddetection-0.1.jar")
+		} else {
+			file, err = os.Open("../resources/WindowJoin.jar")
 		}
 		defer func() {
 			_ = file.Close()
@@ -172,13 +174,13 @@ func Test_UpdateFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	var testUpdateRequests []*fmpb.UpdateFileRequest
 	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
-		FileId:       jarId,
+		FileId:   jarId,
 		FileName: "test_jar.jar",
 		FilePath: "test/jar/demo",
 		FileType: 1,
 	})
 	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
-		FileId:       udfId,
+		FileId:   udfId,
 		FileName: "test_udf.jar",
 		FilePath: "/test/udf/demo",
 		FileType: 2,
