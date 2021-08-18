@@ -98,5 +98,5 @@ func (fs *FileManagerServer) DeleteAllFiles(ctx context.Context, req *fmpb.Delet
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     id           string    "文件id"
 func (fs *FileManagerServer) DescribeFile(ctx context.Context,req *fmpb.DescribeRequest) (*fmpb.FileInfoResponse, error) {
-	return fs.executor.DescribeFile(ctx,req.Id)
+	return fs.executor.DescribeFile(ctx,req.FileId)
 }

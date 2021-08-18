@@ -19,13 +19,13 @@ const (
 	spaceId   = "wks-0123456789012345"
 	spaceId2  = "wks-0123456789012346"
 	spaceId3  = "wks-0123456789012347"
-	jarId     = "file-04bbca8755d62131"
-	udfId     = "file-04bbca8755d62132"
-	deleteId1 = "file-04bbca8755d62133"
-	deleteId2 = "file-04bbca8755d62134"
-	deleteId3 = "file-04bbca8755d62135"
-	deleteId4 = "file-04bbca8755d62136"
-	deleteId5 = "file-04bbca8755d62137"
+	jarId     = "fil-04bbca8755d62131"
+	udfId     = "fil-04bbca8755d62132"
+	deleteId1 = "fil-04bbca8755d62133"
+	deleteId2 = "fil-04bbca8755d62134"
+	deleteId3 = "fil-04bbca8755d62135"
+	deleteId4 = "fil-04bbca8755d62136"
+	deleteId5 = "fil-04bbca8755d62137"
 )
 
 var (
@@ -150,7 +150,7 @@ func Test_DescribeFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing describe")
 	fmt.Println("===================================================================")
-	_, err := client.DescribeFile(ctx, &fmpb.DescribeRequest{Id: jarId})
+	_, err := client.DescribeFile(ctx, &fmpb.DescribeRequest{FileId: jarId})
 	require.Nil(t, err, "%+v", err)
 }
 
