@@ -3,9 +3,9 @@ module github.com/DataWorkbench/filemanager
 go 1.15
 
 require (
-	github.com/DataWorkbench/common v0.0.0-20210818080836-68dbf7736e61
+	github.com/DataWorkbench/common v0.0.0-20210831025527-60c929912586
 	github.com/DataWorkbench/glog v0.0.0-20210809050640-4960fd6de6ab
-	github.com/DataWorkbench/gproto v0.0.0-20210818083444-ab457ff49cc7
+	github.com/DataWorkbench/gproto v0.0.0-20210831074144-b1e7cb0afad0
 	github.com/DataWorkbench/loader v0.0.0-20201119073611-6f210eb11a8c
 	github.com/colinmarc/hdfs v1.1.3
 	github.com/go-playground/validator/v10 v10.4.1

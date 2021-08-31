@@ -20,13 +20,25 @@ func NewFileManagerServer(executor *executor.FileManagerExecutor) *FileManagerSe
 	}
 }
 
+// CreateDir @title  创建文件夹
+// @description   创建文件夹
+// @auth      gx             时间（2021/7/28   10:57 ）
+// @param     SpaceID        string         "工作空间id"
+// @param     DirName       string         "文件夹全路径名"
+func (fs *FileManagerServer) CreateDir(ctx context.Context, req *fmpb.CreateDirRequest) (*model.EmptyStruct, error) {
+	return fs.executor.CreateDir(ctx, req.SpaceId, req.DirName,req.FileId)
+}
+
+func (fs *FileManagerServer) DeleteDir(ctx context.Context,req *fmpb.DeleteDirRequest) (*model.EmptyStruct, error) {
+	return fs.executor.DeleteDir(ctx,req.FileId)
+}
+
 // UploadFile @title  文件上传
 // @description   上传文件到hadoop文件系统
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     SpaceID        string         "工作空间id"
 // @param     FileName       string         "文件全路径名"
 // @param     FileType       int32          "文件类型 1 jar包文件 2 udf文件"
-// @param     SpaceID        string         "工作空间"
 func (fs *FileManagerServer) UploadFile(fu fmpb.FileManager_UploadFileServer) error {
 	return fs.executor.UploadFile(fu)
 }
@@ -42,7 +54,8 @@ func (fs *FileManagerServer) DownloadFile(req *fmpb.DownloadRequest, res fmpb.Fi
 // ListFiles @title  文件下载
 // @description   下载hadoop文件到本地
 // @auth      gx             时间（2021/7/28   10:57 ）
-// @param     SpaceId       string         "根据spaceId查询列表"
+// @param     SpaceId        string        "根据spaceId查询列表"
+// @param     FileType       int32         "根据类型查询"
 // @param     Limit          int32         "分页限制"
 // @param     Offset         int32         "页码"
 // @return    Total          int32         "文件总数"
@@ -53,8 +66,39 @@ func (fs *FileManagerServer) DownloadFile(req *fmpb.DownloadRequest, res fmpb.Fi
 // @return    FilePath       string        "文件路径"
 // @return    FileType       int32         "文件类型 1 jar包文件 2 udf文件"
 // @return    Url            string        "文件的hadoop路径"
+// @return    IsDir          bool          "true 文件夹 、false 文件"
 func (fs *FileManagerServer) ListFiles(ctx context.Context, req *fmpb.ListRequest) (*fmpb.ListResponse, error) {
-	infos, count, err := fs.executor.ListFiles(ctx, req.SpaceId, req.Limit, req.Offset)
+	infos, count, err := fs.executor.ListFiles(ctx, req.SpaceId, req.FileType, req.Limit, req.Offset)
+	if err != nil {
+		return nil, err
+	}
+	reply := &fmpb.ListResponse{
+		Infos:   infos,
+		HasMore: len(infos) >= int(req.Limit),
+		Total:   count,
+	}
+	return reply, nil
+}
+
+// ListFilesByDir @title  文件下载
+// @description   下载hadoop文件到本地
+// @auth      gx             时间（2021/7/28   10:57 ）
+// @param     SpaceId        string        "根据spaceId查询列表"
+// @param     DirName        string        "根据文件夹查询列表"
+// @param     FileType       int32         "根据类型查询"
+// @param     Limit          int32         "分页限制"
+// @param     Offset         int32         "页码"
+// @return    Total          int32         "文件总数"
+// @return    HasMode        int32         "是否有更多"
+// @return    ID             string        "文件id"
+// @return    SpaceID        string        "工作空间id"
+// @return    FileName       string        "文件名"
+// @return    FilePath       string        "文件路径"
+// @return    FileType       int32         "文件类型 1 jar包文件 2 udf文件"
+// @return    Url            string        "文件的hadoop路径"
+// @return    IsDir          bool          "true 文件夹 、false 文件"
+func (fs *FileManagerServer) ListFilesByDir(ctx context.Context, req *fmpb.ListByDirRequest) (*fmpb.ListResponse, error) {
+	infos, count, err := fs.executor.ListFileByDir(ctx, req.SpaceId, req.FileType, req.DirName, req.Limit, req.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +141,6 @@ func (fs *FileManagerServer) DeleteAllFiles(ctx context.Context, req *fmpb.Delet
 // @description   根据id查询文件信息
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     id           string    "文件id"
-func (fs *FileManagerServer) DescribeFile(ctx context.Context,req *fmpb.DescribeRequest) (*fmpb.FileInfoResponse, error) {
-	return fs.executor.DescribeFile(ctx,req.FileId)
+func (fs *FileManagerServer) DescribeFile(ctx context.Context, req *fmpb.DescribeRequest) (*fmpb.FileInfoResponse, error) {
+	return fs.executor.DescribeFile(ctx, req.FileId)
 }

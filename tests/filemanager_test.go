@@ -20,13 +20,15 @@ const (
 	spaceId   = "wks-0123456789012345"
 	spaceId2  = "wks-0123456789012346"
 	spaceId3  = "wks-0123456789012347"
-	jarId     = "fil-04bbca8755d62131"
-	udfId     = "fil-04bbca8755d62132"
-	deleteId1 = "fil-04bbca8755d62133"
-	deleteId2 = "fil-04bbca8755d62134"
-	deleteId3 = "fil-04bbca8755d62135"
-	deleteId4 = "fil-04bbca8755d62136"
-	deleteId5 = "fil-04bbca8755d62137"
+	spaceId4  = "wks-0123456789012348"
+	dirId     = "res-04bbca8755d62130"
+	jarId     = "res-04bbca8755d62131"
+	udfId     = "res-04bbca8755d62132"
+	deleteId1 = "res-04bbca8755d62133"
+	deleteId2 = "res-04bbca8755d62134"
+	deleteId3 = "res-04bbca8755d62135"
+	deleteId4 = "res-04bbca8755d62136"
+	deleteId5 = "res-04bbca8755d62137"
 )
 
 var (
@@ -34,7 +36,8 @@ var (
 	ctx       context.Context
 	initDone  bool
 	generator *idgenerator.IDGenerator
-	deleteIds = []string{deleteId1, deleteId2, deleteId3, deleteId4, deleteId5}
+	deleteIds = []string{deleteId4, deleteId5}
+	deleteDir = ""
 	spaceIds  = []string{spaceId2, spaceId3}
 )
 
@@ -77,9 +80,9 @@ func Test_UploadFile(t *testing.T) {
 		{SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/x/window03.jar"},
 		{SpaceId: spaceId3, FileType: 1, FileName: "window01.jar"},
 		{SpaceId: spaceId3, FileType: 1, FileName: "/xxx/abc/ex/window02.jar"},
-		{FileId: deleteId1, SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/delete01.jar"},
-		{FileId: deleteId2, SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/delete02.jar"},
-		{FileId: deleteId3, SpaceId: spaceId3, FileType: 1, FileName: "/jar/demo/x/delete03.jar"},
+		{FileId: deleteId1, SpaceId: spaceId4, FileType: 1, FileName: "/jar/delete01.jar"},
+		{FileId: deleteId2, SpaceId: spaceId4, FileType: 1, FileName: "/jar/demo/delete02.jar"},
+		{FileId: deleteId3, SpaceId: spaceId4, FileType: 1, FileName: "/jar/demo/x/delete03.jar"},
 		{FileId: deleteId4, SpaceId: spaceId3, FileType: 1, FileName: "delete01.jar"},
 		{FileId: deleteId5, SpaceId: spaceId3, FileType: 1, FileName: "xxx/abc/ex/delete02.jar"},
 		{FileId: jarId, SpaceId: spaceId, FileType: 2, FileName: "/jar.jar"},
@@ -155,12 +158,46 @@ func Test_DescribeFile(t *testing.T) {
 	require.Nil(t, err, "%+v", err)
 }
 
+func Test_CreateDir(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing create dir")
+	fmt.Println("===================================================================")
+	_, err := client.CreateDir(ctx, &fmpb.CreateDirRequest{
+		FileId:  dirId,
+		SpaceId: spaceId4,
+		DirName: "/jar/demo",
+	})
+	require.Nil(t, err, "%+v", err)
+}
+
+func Test_ListFilesByDir(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing list files by dir")
+	fmt.Println("===================================================================")
+	_, err := client.ListFilesByDir(ctx, &fmpb.ListByDirRequest{
+		SpaceId:  spaceId4,
+		Limit:    10,
+		Offset:   0,
+		DirName:  "/jar/demo/",
+		FileType: 1,
+	})
+	require.Nil(t, err, "%+v", err)
+}
+
+func Test_DeleteDir(t *testing.T) {
+	fmt.Println("===================================================================")
+	fmt.Println("testing delete dir")
+	fmt.Println("===================================================================")
+	_, err := client.DeleteDir(ctx, &fmpb.DeleteDirRequest{FileId: dirId})
+	require.Nil(t, err, "%+v", err)
+}
+
 func Test_ListFiles(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing get file list")
 	fmt.Println("===================================================================")
 	getFileRequests := []*fmpb.ListRequest{
-		{SpaceId: spaceId2, Limit: 3, Offset: 2},
+		{SpaceId: spaceId2, Limit: 3, Offset: 2, FileType: 1},
 	}
 	for _, v := range getFileRequests {
 		_, err := client.ListFiles(ctx, v)
@@ -168,7 +205,7 @@ func Test_ListFiles(t *testing.T) {
 	}
 }
 
-func Test_DeleteFiles(t *testing.T) {
+func Test_DeleteFilesByIds(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting file")
 	fmt.Println("===================================================================")
@@ -179,7 +216,7 @@ func Test_DeleteFiles(t *testing.T) {
 	require.Nil(t, err, "%+v", err)
 }
 
-func Test_DeleteAll(t *testing.T) {
+func Test_DeleteFilesBySpaceIds(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting all")
 	fmt.Println("===================================================================")
