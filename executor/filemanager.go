@@ -88,8 +88,10 @@ func (ex *FileManagerExecutor) DeleteDir(ctx context.Context, dirId string) (*mo
 	for _, file := range fileList {
 		ids = append(ids, file.ID)
 	}
-	if _, err := ex.DeleteFiles(ctx, ids); err != nil {
-		return nil, err
+	if len(ids)!=0 {
+		if _, err := ex.DeleteFiles(ctx, ids); err != nil {
+			return nil, err
+		}
 	}
 	deleteTimestamp := int32(time.Now().Unix())
 	if err := db.Exec(fmt.Sprintf("UPDATE file_manager SET delete_timestamp=%d WHERE space_id = '%s' and delete_timestamp = 0 and is_dir = true and virtual_path like '%s'", deleteTimestamp, info.SpaceID, dirName+"%")).Error; err != nil {
