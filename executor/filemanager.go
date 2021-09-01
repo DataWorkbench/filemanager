@@ -347,11 +347,10 @@ func (ex *FileManagerExecutor) DescribeFile(ctx context.Context, id string) (*fm
 	if db.Where(FileManager{ID: id, DeleteTimestamp: &isDeleted}).First(&file).RowsAffected == 0 {
 		return nil, qerror.ResourceNotExists
 	}
-	fileName, _ := checkAndGetFile(&file.VirtualPath)
 	var rsp = &fmpb.FileInfoResponse{
 		Id:       id,
 		SpaceId:  file.SpaceID,
-		FileName: fileName,
+		FileName: file.VirtualName,
 		FilePath: file.VirtualPath,
 		FileType: file.Type,
 		Url:      "hdfs://" + ex.hdfsServer + getHdfsPath(file.SpaceID, id),
@@ -422,10 +421,7 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFil
 				_ = client.Remove(hdfsPath)
 			}
 		}()
-		if _, err = writer.Write(recv.Data); err != nil {
-			_ = client.Remove(hdfsPath)
-			return
-		}
+
 		for {
 			recv, err = fu.Recv()
 			if err == io.EOF {
@@ -503,6 +499,7 @@ func checkDirName(dir string) (dirName string, err error) {
 		err = qerror.InvalidParams.Format("filePath")
 		return
 	}
+	dirName = dirName[:strings.LastIndex(dirName, fileSplit)]
 	return
 }
 
