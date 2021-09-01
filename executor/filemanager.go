@@ -62,6 +62,9 @@ func (ex *FileManagerExecutor) CreateDir(ctx context.Context, spaceId string, di
 		DeleteTimestamp: &isDeleted,
 		IsDir:           true,
 	}
+	if db.Where("space_id = ? and virtual_path = ? and delete_timestamp = 0", spaceId, dirName).First(&FileManager{}).RowsAffected == 1 {
+		return nil, qerror.ResourceAlreadyExists
+	}
 	if err = db.Create(&fileManger).Error; err != nil {
 		return nil, err
 	}
@@ -189,13 +192,13 @@ func (ex *FileManagerExecutor) ListFileByDir(ctx context.Context, spaceId string
 		files     []*FileManager
 		fileTypes = []int32{fileType, 0}
 	)
-	if err = db.Model(&FileManager{}).Select("*").Where("space_id = ? and type in ? and delete_timestamp = 0 and virtual_path like ?", spaceId, fileTypes, dirName+"%").
+	if err = db.Model(&FileManager{}).Select("*").Where("space_id = ? and type in ? and delete_timestamp = 0 and virtual_path like ?", spaceId, fileTypes, dirName+"/%").
 		Limit(int(limit)).Offset(int(offset)).Order("update_time ASC").
 		Scan(&files).Error; err != nil {
 		return
 	}
 
-	if err = db.Model(&FileManager{}).Where("space_id = ? and  delete_timestamp = 0 and type in ? and virtual_path like ?", spaceId, fileTypes, dirName+"%").Count(&count).Error; err != nil {
+	if err = db.Model(&FileManager{}).Where("space_id = ? and  delete_timestamp = 0 and type in ? and virtual_path like ?", spaceId, fileTypes, dirName+"/%").Count(&count).Error; err != nil {
 		return
 	}
 	for _, file := range files {
@@ -489,17 +492,17 @@ func checkDirName(dir string) (dirName string, err error) {
 		return
 	}
 	if !strings.HasSuffix(dir, fileSplit) {
-		dirName = dir + fileSplit
+		dir = dir + fileSplit
 	}
 	if !strings.HasPrefix(dir, fileSplit) {
-		dirName = fileSplit + dirName
+		dir = fileSplit + dir
 	}
 	dirReg := `^\/(\w+\/?)+$`
-	if ok, _ := regexp.Match(dirReg, []byte(dirName)); !ok {
+	if ok, _ := regexp.Match(dirReg, []byte(dir)); !ok {
 		err = qerror.InvalidParams.Format("filePath")
 		return
 	}
-	dirName = dirName[:strings.LastIndex(dirName, fileSplit)]
+	dirName = dir[:strings.LastIndex(dir, fileSplit)]
 	return
 }
 
