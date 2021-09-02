@@ -5,10 +5,11 @@ go 1.15
 require (
 	github.com/DataWorkbench/common v0.0.0-20210831025527-60c929912586
 	github.com/DataWorkbench/glog v0.0.0-20210809050640-4960fd6de6ab
-	github.com/DataWorkbench/gproto v0.0.0-20210902074306-7a2eb74520f3
+	github.com/DataWorkbench/gproto v0.0.0-20210902095820-02929439251c // indirect
 	github.com/DataWorkbench/loader v0.0.0-20201119073611-6f210eb11a8c
 	github.com/colinmarc/hdfs v1.1.3
 	github.com/go-playground/validator/v10 v10.4.1
+	github.com/golang/protobuf v1.5.2
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
 	google.golang.org/grpc v1.38.0

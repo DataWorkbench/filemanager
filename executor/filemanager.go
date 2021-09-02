@@ -92,6 +92,27 @@ func (ex *FileManagerExecutor) UploadFile(fu fmpb.FileManager_UploadFileServer) 
 	return fu.SendAndClose(&model.EmptyStruct{})
 }
 
+func (ex *FileManagerExecutor) CheckExist(ctx context.Context, spaceId string, filePath string, fileType int32) (rsp *model.EmptyStruct, err error) {
+	var (
+		name      string
+		isDeleted int32
+	)
+	if name, err = checkAndGetFile(&filePath); err != nil {
+		return
+	}
+	db := ex.db.WithContext(ctx)
+	if result := db.Where(FileManager{
+		SpaceID:         spaceId,
+		VirtualPath:     filePath,
+		VirtualName:     name,
+		DeleteTimestamp: &isDeleted,
+	}).Find(&FileManager{}); result.RowsAffected > 0 {
+		err = qerror.ResourceAlreadyExists
+		return
+	}
+	return &model.EmptyStruct{}, nil
+}
+
 func (ex *FileManagerExecutor) DownloadFile(id string, res fmpb.FileManager_DownloadFileServer) (err error) {
 	var (
 		fileInfo FileManager
@@ -387,6 +408,7 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFil
 			err = qerror.ResourceAlreadyExists
 			return
 		}
+
 		if client, err = hdfs.New(ex.hdfsServer); err != nil {
 			return
 		}

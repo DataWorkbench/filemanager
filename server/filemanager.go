@@ -111,3 +111,7 @@ func (fs *FileManagerServer) DeleteSpace(ctx context.Context, req *fmpb.DeleteSp
 func (fs *FileManagerServer) DescribeFile(ctx context.Context, req *fmpb.DescribeRequest) (*fmpb.FileInfoResponse, error) {
 	return fs.executor.DescribeFile(ctx, req.FileId)
 }
+
+func (fs *FileManagerServer) CheckExist(ctx context.Context,req *fmpb.CheckRequest) (*model.EmptyStruct, error){
+	return fs.executor.CheckExist(ctx,req.SpaceId,req.FileName,req.FileType)
+}
