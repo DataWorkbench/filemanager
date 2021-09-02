@@ -3,9 +3,9 @@ package executor
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/DataWorkbench/gproto/pkg/model"
+	"gopkg.in/fatih/set.v0"
 	"io"
 	"os"
 	"regexp"
@@ -71,35 +71,6 @@ func (ex *FileManagerExecutor) CreateDir(ctx context.Context, spaceId string, di
 	return &model.EmptyStruct{}, nil
 }
 
-func (ex *FileManagerExecutor) DeleteDir(ctx context.Context, dirId string) (*model.EmptyStruct, error) {
-	var (
-		info     FileManager
-		fileList []*FileManager
-		ids      []string
-	)
-	db := ex.db.WithContext(ctx)
-	if db.Where("id = ? and is_dir = true and delete_timestamp = 0", dirId).First(&info).RowsAffected == 0 {
-		return nil, qerror.ResourceNotExists
-	}
-	dirName := info.VirtualPath
-	if err := db.Where("space_id = ? and delete_timestamp = 0 and is_dir = false and virtual_path like ?", info.SpaceID, dirName+"%").Find(&fileList).Error; err != nil {
-		return nil, err
-	}
-	for _, file := range fileList {
-		ids = append(ids, file.ID)
-	}
-	if len(ids)!=0 {
-		if _, err := ex.DeleteFiles(ctx, ids); err != nil {
-			return nil, err
-		}
-	}
-	deleteTimestamp := int32(time.Now().Unix())
-	if err := db.Exec(fmt.Sprintf("UPDATE file_manager SET delete_timestamp=%d WHERE space_id = '%s' and delete_timestamp = 0 and is_dir = true and virtual_path like '%s'", deleteTimestamp, info.SpaceID, dirName+"%")).Error; err != nil {
-		return nil, err
-	}
-	return &model.EmptyStruct{}, nil
-}
-
 func (ex *FileManagerExecutor) UploadFile(fu fmpb.FileManager_UploadFileServer) error {
 	var info FileManager
 	fileId, err := ex.idGenerator.Take()
@@ -157,51 +128,32 @@ func (ex *FileManagerExecutor) DownloadFile(id string, res fmpb.FileManager_Down
 	}
 }
 
-func (ex *FileManagerExecutor) ListFiles(ctx context.Context, spaceId string, fileType int32, limit, offset int32) (rsp []*fmpb.FileInfoResponse, count int64, err error) {
-	db := ex.db.WithContext(ctx)
-	var (
-		isDeleted int32
-		files     []*FileManager
-		fileTypes = []int32{fileType, 0}
-	)
-	if err = db.Model(&FileManager{}).Select("*").Where("space_id = ? and type in ?", spaceId, fileTypes).
-		Limit(int(limit)).Offset(int(offset)).Order("update_time ASC").
-		Scan(&files).Error; err != nil {
-		return
-	}
-
-	if err = db.Model(&FileManager{}).Where(FileManager{
-		SpaceID: spaceId, DeleteTimestamp: &isDeleted,
-	}).Count(&count).Error; err != nil {
-		return
-	}
-	for _, file := range files {
-		rsp = append(rsp, &fmpb.FileInfoResponse{
-			Id:       file.ID,
-			SpaceId:  file.SpaceID,
-			FileName: file.VirtualName,
-			FilePath: file.VirtualPath,
-			FileType: file.Type,
-			IsDir:    file.IsDir,
-		})
-	}
-	return
-}
-
-func (ex *FileManagerExecutor) ListFileByDir(ctx context.Context, spaceId string, fileType int32, dirName string, limit, offset int32) (rsp []*fmpb.FileInfoResponse, count int64, err error) {
+func (ex *FileManagerExecutor) ListFiles(ctx context.Context, spaceId string, fileType int32, dirName string, limit, offset int32) (rsp []*fmpb.FileInfoResponse, count int64, err error) {
 	db := ex.db.WithContext(ctx)
 	var (
 		files     []*FileManager
 		fileTypes = []int32{fileType, 0}
 	)
-	if err = db.Model(&FileManager{}).Select("*").Where("space_id = ? and type in ? and delete_timestamp = 0 and virtual_path like ?", spaceId, fileTypes, dirName+"/%").
-		Limit(int(limit)).Offset(int(offset)).Order("update_time ASC").
-		Scan(&files).Error; err != nil {
-		return
-	}
 
-	if err = db.Model(&FileManager{}).Where("space_id = ? and  delete_timestamp = 0 and type in ? and virtual_path like ?", spaceId, fileTypes, dirName+"/%").Count(&count).Error; err != nil {
-		return
+	if dirName == "" {
+		if err = db.Model(&FileManager{}).Select("*").Where("space_id = ? and delete_timestamp = 0 and type in ?", spaceId, fileTypes).
+			Limit(int(limit)).Offset(int(offset)).Order("update_time ASC").
+			Scan(&files).Error; err != nil {
+			return
+		}
+		if err = db.Model(&FileManager{}).Where("space_id = ? and delete_timestamp = 0 and type in ?", spaceId, fileTypes).Count(&count).Error; err != nil {
+			return
+		}
+	} else {
+		if err = db.Model(&FileManager{}).Select("*").Where("space_id = ? and delete_timestamp = 0 and virtual_path like ? and type in ?", spaceId, dirName+"/%", fileTypes).
+			Limit(int(limit)).Offset(int(offset)).Order("update_time ASC").
+			Scan(&files).Error; err != nil {
+			return
+		}
+
+		if err = db.Model(&FileManager{}).Where("space_id = ? and  delete_timestamp = 0 and virtual_path like ? and type in ?", spaceId, dirName+"/%", fileTypes).Count(&count).Error; err != nil {
+			return
+		}
 	}
 	for _, file := range files {
 		rsp = append(rsp, &fmpb.FileInfoResponse{
@@ -256,7 +208,10 @@ func (ex *FileManagerExecutor) UpdateFile(ctx context.Context, id, virtualPath s
 func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*model.EmptyStruct, error) {
 	var (
 		isDeleted   int32
-		removePaths []string
+		removePaths = set.New(set.ThreadSafe)
+		removeIds   = set.New(set.ThreadSafe)
+		dirList     []string
+		allFileList []*FileManager
 	)
 	db := ex.db.WithContext(ctx)
 	if len(ids) == 0 {
@@ -269,12 +224,30 @@ func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*
 		if result := db.Where(&FileManager{ID: id, DeleteTimestamp: &isDeleted}).First(&file); result.RowsAffected == 0 {
 			return nil, qerror.ResourceNotExists
 		}
-		removePaths = append(removePaths, getHdfsPath(file.SpaceID, id))
+		if file.IsDir {
+			dirName := file.VirtualPath
+			dirList = append(dirList, dirName)
+			var fileList []*FileManager
+			if err := db.Where("space_id = ? and delete_timestamp = 0 and is_dir = false and virtual_path like ?", file.SpaceID, dirName+"%").Find(&fileList).Error; err != nil {
+				return nil, err
+			}
+			allFileList = append(allFileList, fileList...)
+		} else {
+			removePaths.Add(getHdfsPath(file.SpaceID, id))
+		}
+	}
+
+	for _, id := range ids {
+		removeIds.Add(id)
+	}
+	for _, f := range allFileList {
+		removeIds.Add(f.ID)
+		removePaths.Add(getHdfsPath(f.SpaceID, f.ID))
 	}
 
 	curTime := time.Now()
 	deleteTimestamp := int32(curTime.Unix())
-	if err := tx.Model(&FileManager{}).Where("delete_timestamp = 0 AND id IN (?)", ids).
+	if err := tx.Model(&FileManager{}).Where("delete_timestamp = 0 AND id IN (?)", removeIds.List()).
 		UpdateColumns(&FileManager{DeleteTimestamp: &deleteTimestamp}).Error; err != nil {
 		tx.Rollback()
 		return nil, err
@@ -288,7 +261,9 @@ func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*
 	defer func() {
 		_ = client.Close()
 	}()
-	for _, removePath := range removePaths {
+
+	for _, remove := range removePaths.List() {
+		removePath := remove.(string)
 		if err = client.Remove(removePath); err != nil && errors.Is(&os.PathError{
 			Op:   "remove",
 			Path: removePath,
@@ -302,42 +277,53 @@ func (ex *FileManagerExecutor) DeleteFiles(ctx context.Context, ids []string) (*
 	return &model.EmptyStruct{}, nil
 }
 
-func (ex *FileManagerExecutor) DeleteAllFiles(ctx context.Context, spaceIds []string) (*model.EmptyStruct, error) {
+func (ex *FileManagerExecutor) DeleteSpace(ctx context.Context, spaceIds []string) (*model.EmptyStruct, error) {
 	var (
-		ids []string
+		ids      []string
+		notExist bool
 	)
 	db := ex.db.WithContext(ctx)
-	if db.Model(&FileManager{}).Where("delete_timestamp = 0 AND space_id IN (?)", spaceIds).Select("id").Find(&ids).RowsAffected == 0 {
-		return nil, qerror.ResourceNotExists
-	}
-
-	tx := db.Begin()
-	curTime := time.Now()
-	deleteTimestamp := int32(curTime.Unix())
-	if err := tx.Model(&FileManager{}).Where("space_id IN (?) and delete_timestamp = 0", spaceIds).
-		UpdateColumns(&FileManager{DeleteTimestamp: &deleteTimestamp}).Error; err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
 	client, err := hdfs.New(ex.hdfsServer)
 	if err != nil {
-		tx.Rollback()
 		return nil, err
 	}
 	defer func() {
 		_ = client.Close()
 	}()
+	if db.Model(&FileManager{}).Where("delete_timestamp = 0 AND space_id IN (?)", spaceIds).Select("id").Find(&ids).RowsAffected == 0 {
+		notExist = true
+	}
+
+	tx := db.Begin()
+	curTime := time.Now()
+	deleteTimestamp := int32(curTime.Unix())
+
+	if notExist {
+		goto DeleteFromHdfs
+	}
+
+	if err = tx.Model(&FileManager{}).Where("space_id IN (?) and delete_timestamp = 0", spaceIds).
+		UpdateColumns(&FileManager{DeleteTimestamp: &deleteTimestamp}).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+DeleteFromHdfs:
 	for _, removePath := range spaceIds {
 		removePath = fileSplit + removePath
-		if err = client.Remove(removePath); err != nil && errors.Is(&os.PathError{
-			Op:   "remove",
-			Path: removePath,
-			Err:  errors.New("file does not exits"),
-		}, err) {
-			tx.Rollback()
-			return nil, err
+		if err = client.Remove(removePath); err != nil {
+			if _, ok := err.(*os.PathError); !ok {
+				if !notExist {
+					tx.Rollback()
+				}
+				return nil, err
+			}
+		} else {
+			notExist = false
 		}
+	}
+	if notExist {
+		return nil, qerror.ResourceNotExists
 	}
 	tx.Commit()
 	return &model.EmptyStruct{}, nil

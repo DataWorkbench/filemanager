@@ -36,9 +36,8 @@ var (
 	ctx       context.Context
 	initDone  bool
 	generator *idgenerator.IDGenerator
-	deleteIds = []string{deleteId4, deleteId5}
-	deleteDir = ""
-	spaceIds  = []string{spaceId2, spaceId3}
+	deleteIds = []string{deleteId2, deleteId1, deleteId4, deleteId5, dirId}
+	spaceIds  = []string{spaceId2, spaceId3, spaceId4}
 )
 
 func init() {
@@ -83,8 +82,8 @@ func Test_UploadFile(t *testing.T) {
 		{FileId: deleteId1, SpaceId: spaceId4, FileType: 1, FileName: "/jar/delete01.jar"},
 		{FileId: deleteId2, SpaceId: spaceId4, FileType: 1, FileName: "/jar/demo/delete02.jar"},
 		{FileId: deleteId3, SpaceId: spaceId4, FileType: 1, FileName: "/jar/demo/x/delete03.jar"},
-		{FileId: deleteId4, SpaceId: spaceId3, FileType: 1, FileName: "delete01.jar"},
-		{FileId: deleteId5, SpaceId: spaceId3, FileType: 1, FileName: "xxx/abc/ex/delete02.jar"},
+		{FileId: deleteId4, SpaceId: spaceId4, FileType: 2, FileName: "udf.jar"},
+		{FileId: deleteId5, SpaceId: spaceId4, FileType: 1, FileName: "/jar/demo1/c.jar"},
 		{FileId: jarId, SpaceId: spaceId, FileType: 2, FileName: "/jar.jar"},
 		{FileId: udfId, SpaceId: spaceId, FileType: 1, FileName: "udf.jar"},
 	}
@@ -107,6 +106,8 @@ func Test_UploadFile(t *testing.T) {
 		buf := make([]byte, 4096)
 		var n int
 		stream, err := client.UploadFile(ctx)
+		require.Nil(t, err, "%+v", err)
+		err = stream.Send(v)
 		require.Nil(t, err, "%+v", err)
 		for {
 			n, err = reader.Read(buf)
@@ -174,21 +175,13 @@ func Test_ListFilesByDir(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing list files by dir")
 	fmt.Println("===================================================================")
-	_, err := client.ListFilesByDir(ctx, &fmpb.ListByDirRequest{
+	_, err := client.ListFiles(ctx, &fmpb.ListRequest{
 		SpaceId:  spaceId4,
 		Limit:    10,
 		Offset:   0,
-		DirName:  "/jar/demo/",
+		DirName:  "/jar/demo",
 		FileType: 1,
 	})
-	require.Nil(t, err, "%+v", err)
-}
-
-func Test_DeleteDir(t *testing.T) {
-	fmt.Println("===================================================================")
-	fmt.Println("testing delete dir")
-	fmt.Println("===================================================================")
-	_, err := client.DeleteDir(ctx, &fmpb.DeleteDirRequest{FileId: dirId})
 	require.Nil(t, err, "%+v", err)
 }
 
@@ -197,7 +190,7 @@ func Test_ListFiles(t *testing.T) {
 	fmt.Println("testing get file list")
 	fmt.Println("===================================================================")
 	getFileRequests := []*fmpb.ListRequest{
-		{SpaceId: spaceId2, Limit: 3, Offset: 2, FileType: 1},
+		{SpaceId: spaceId4, Limit: 10, Offset: 0, FileType: 1},
 	}
 	for _, v := range getFileRequests {
 		_, err := client.ListFiles(ctx, v)
@@ -205,14 +198,14 @@ func Test_ListFiles(t *testing.T) {
 	}
 }
 
-func Test_DeleteFilesByIds(t *testing.T) {
+func Test_DeleteFiles(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting file")
 	fmt.Println("===================================================================")
-	testDeleteRequests := &fmpb.DeleteFilesRequest{
+	testDeleteRequests := &fmpb.DeleteRequest{
 		Ids: deleteIds,
 	}
-	_, err := client.DeleteFiles(ctx, testDeleteRequests)
+	_, err := client.Delete(ctx, testDeleteRequests)
 	require.Nil(t, err, "%+v", err)
 }
 
@@ -220,8 +213,8 @@ func Test_DeleteFilesBySpaceIds(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting all")
 	fmt.Println("===================================================================")
-	deleteAllRequest := &fmpb.DeleteAllFilesRequest{SpaceIds: spaceIds}
-	_, err := client.DeleteAllFiles(ctx, deleteAllRequest)
+	deleteAllRequest := &fmpb.DeleteSpaceRequest{SpaceIds: spaceIds}
+	_, err := client.DeleteSpace(ctx, deleteAllRequest)
 	require.Nil(t, err, "%+v", err)
 }
 

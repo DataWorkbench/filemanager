@@ -26,11 +26,7 @@ func NewFileManagerServer(executor *executor.FileManagerExecutor) *FileManagerSe
 // @param     SpaceID        string         "工作空间id"
 // @param     DirName       string         "文件夹全路径名"
 func (fs *FileManagerServer) CreateDir(ctx context.Context, req *fmpb.CreateDirRequest) (*model.EmptyStruct, error) {
-	return fs.executor.CreateDir(ctx, req.SpaceId, req.DirName,req.FileId)
-}
-
-func (fs *FileManagerServer) DeleteDir(ctx context.Context,req *fmpb.DeleteDirRequest) (*model.EmptyStruct, error) {
-	return fs.executor.DeleteDir(ctx,req.FileId)
+	return fs.executor.CreateDir(ctx, req.SpaceId, req.DirName, req.FileId)
 }
 
 // UploadFile @title  文件上传
@@ -56,6 +52,7 @@ func (fs *FileManagerServer) DownloadFile(req *fmpb.DownloadRequest, res fmpb.Fi
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     SpaceId        string        "根据spaceId查询列表"
 // @param     FileType       int32         "根据类型查询"
+// @param     DirName        string        "根据目录名查询"
 // @param     Limit          int32         "分页限制"
 // @param     Offset         int32         "页码"
 // @return    Total          int32         "文件总数"
@@ -68,37 +65,7 @@ func (fs *FileManagerServer) DownloadFile(req *fmpb.DownloadRequest, res fmpb.Fi
 // @return    Url            string        "文件的hadoop路径"
 // @return    IsDir          bool          "true 文件夹 、false 文件"
 func (fs *FileManagerServer) ListFiles(ctx context.Context, req *fmpb.ListRequest) (*fmpb.ListResponse, error) {
-	infos, count, err := fs.executor.ListFiles(ctx, req.SpaceId, req.FileType, req.Limit, req.Offset)
-	if err != nil {
-		return nil, err
-	}
-	reply := &fmpb.ListResponse{
-		Infos:   infos,
-		HasMore: len(infos) >= int(req.Limit),
-		Total:   count,
-	}
-	return reply, nil
-}
-
-// ListFilesByDir @title  文件下载
-// @description   下载hadoop文件到本地
-// @auth      gx             时间（2021/7/28   10:57 ）
-// @param     SpaceId        string        "根据spaceId查询列表"
-// @param     DirName        string        "根据文件夹查询列表"
-// @param     FileType       int32         "根据类型查询"
-// @param     Limit          int32         "分页限制"
-// @param     Offset         int32         "页码"
-// @return    Total          int32         "文件总数"
-// @return    HasMode        int32         "是否有更多"
-// @return    ID             string        "文件id"
-// @return    SpaceID        string        "工作空间id"
-// @return    FileName       string        "文件名"
-// @return    FilePath       string        "文件路径"
-// @return    FileType       int32         "文件类型 1 jar包文件 2 udf文件"
-// @return    Url            string        "文件的hadoop路径"
-// @return    IsDir          bool          "true 文件夹 、false 文件"
-func (fs *FileManagerServer) ListFilesByDir(ctx context.Context, req *fmpb.ListByDirRequest) (*fmpb.ListResponse, error) {
-	infos, count, err := fs.executor.ListFileByDir(ctx, req.SpaceId, req.FileType, req.DirName, req.Limit, req.Offset)
+	infos, count, err := fs.executor.ListFiles(ctx, req.SpaceId, req.FileType, req.DirName, req.Limit, req.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -121,20 +88,20 @@ func (fs *FileManagerServer) UpdateFile(ctx context.Context, req *fmpb.UpdateFil
 	return fs.executor.UpdateFile(ctx, req.FileId, req.FileName, req.FileType)
 }
 
-// DeleteFiles @title  根据id批量删除文件
+// Delete @title  根据id批量删除文件
 // @description   删除文件
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     Ids           string         "文件id"
-func (fs *FileManagerServer) DeleteFiles(ctx context.Context, req *fmpb.DeleteFilesRequest) (*model.EmptyStruct, error) {
+func (fs *FileManagerServer) Delete(ctx context.Context, req *fmpb.DeleteRequest) (*model.EmptyStruct, error) {
 	return fs.executor.DeleteFiles(ctx, req.Ids)
 }
 
-// DeleteAllFiles @title  根据space_id批量删除文件
+// DeleteSpace @title  根据space_id批量删除文件
 // @description   删除文件
 // @auth      gx             时间（2021/7/28   10:57 ）
 // @param     SpaceIds           string    "工作空间id"
-func (fs *FileManagerServer) DeleteAllFiles(ctx context.Context, req *fmpb.DeleteAllFilesRequest) (*model.EmptyStruct, error) {
-	return fs.executor.DeleteAllFiles(ctx, req.SpaceIds)
+func (fs *FileManagerServer) DeleteSpace(ctx context.Context, req *fmpb.DeleteSpaceRequest) (*model.EmptyStruct, error) {
+	return fs.executor.DeleteSpace(ctx, req.SpaceIds)
 }
 
 // DescribeFile @title
