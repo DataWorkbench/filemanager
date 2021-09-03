@@ -396,19 +396,19 @@ func (ex *FileManagerExecutor) uploadStreamHandler(fu fmpb.FileManager_UploadFil
 		fileInfo.VirtualPath = recv.FileName
 		fileInfo.VirtualName = fileName
 		hdfsPath := getHdfsPath(recv.SpaceId, fileId)
-		var isDeleted int32
-		db := ex.db.WithContext(fu.Context())
-
-		if result := db.Where(FileManager{
-			SpaceID:         fileInfo.SpaceID,
-			VirtualPath:     fileInfo.VirtualPath,
-			VirtualName:     fileInfo.VirtualName,
-			DeleteTimestamp: &isDeleted,
-		}).Find(&FileManager{}); result.RowsAffected > 0 {
-			err = qerror.ResourceAlreadyExists
-			return
-		}
-
+		//TODO 交给apiServer来弄
+		//var isDeleted int32
+		//db := ex.db.WithContext(fu.Context())
+		//
+		//if result := db.Where(FileManager{
+		//	SpaceID:         fileInfo.SpaceID,
+		//	VirtualPath:     fileInfo.VirtualPath,
+		//	VirtualName:     fileInfo.VirtualName,
+		//	DeleteTimestamp: &isDeleted,
+		//}).Find(&FileManager{}); result.RowsAffected > 0 {
+		//	err = qerror.ResourceAlreadyExists
+		//	return
+		//}
 		if client, err = hdfs.New(ex.hdfsServer); err != nil {
 			return
 		}
