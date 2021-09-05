@@ -3,7 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
-	"github.com/DataWorkbench/gproto/pkg/fmpb"
+	"github.com/DataWorkbench/gproto/pkg/resource"
 	"github.com/stretchr/testify/require"
 	"io"
 	"os"
@@ -14,7 +14,6 @@ import (
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/common/utils/idgenerator"
 	"github.com/DataWorkbench/glog"
-	"github.com/DataWorkbench/gproto/pkg/resource"
 )
 
 const (
@@ -49,7 +48,7 @@ const (
 )
 
 var (
-	client    fmpb.ResourceManagerClient
+	client    resource.ResourceManagerClient
 	ctx       context.Context
 	initDone  bool
 	generator *idgenerator.IDGenerator
@@ -71,7 +70,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	client = fmpb.NewResourceManagerClient(conn)
+	client = resource.NewResourceManagerClient(conn)
 	logger := glog.NewDefault()
 	generator = idgenerator.New(constants.FileMangerIDPrefix)
 	reqId, _ := generator.Take()
@@ -85,7 +84,7 @@ func Test_CreateDir(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing create dir")
 	fmt.Println("===================================================================")
-	createDirRequest := []*fmpb.CreateDirRequest{
+	createDirRequest := []*resource.CreateDirRequest{
 		{ResourceId: dirId1, SpaceId: spaceId, DirName: "doc"},
 		{ResourceId: dirId2, SpaceId: spaceId, DirName: "demo2", ParentId: dirId1},
 		{ResourceId: dirId3, SpaceId: spaceId, DirName: "demo3", ParentId: dirId1},
@@ -101,7 +100,7 @@ func Test_UploadFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing upload")
 	fmt.Println("===================================================================")
-	uploadRequest := []*fmpb.UploadFileRequest{
+	uploadRequest := []*resource.UploadFileRequest{
 		//TODO 在根目录下
 		{ResourceId: deleteId00, SpaceId: spaceId, ResourceType: 1, ResourceName: "0-window1.jar"},
 		{ResourceId: deleteId0, SpaceId: spaceId, ResourceType: 1, ResourceName: "0-window2.jar"},
@@ -175,13 +174,13 @@ func Test_DownloadFile(t *testing.T) {
 	fmt.Println("testing download")
 	fmt.Println("===================================================================")
 	var (
-		stream fmpb.ResourceManager_DownloadFileClient
-		recv   *fmpb.DownloadResponse
+		stream resource.ResourceManager_DownloadFileClient
+		recv   *resource.DownloadResponse
 	)
 
 	f, err := os.Create(fmt.Sprintf("../resources/test_download.jar"))
 	require.Nil(t, err, "%+v", err)
-	stream, err = client.DownloadFile(ctx, &fmpb.DownloadRequest{ResourceId: jarId})
+	stream, err = client.DownloadFile(ctx, &resource.DownloadRequest{ResourceId: jarId})
 	require.Nil(t, err, "%+v", err)
 	for {
 		recv, err = stream.Recv()
@@ -200,8 +199,8 @@ func Test_DescribeFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing describe")
 	fmt.Println("===================================================================")
-	_, err := client.DescribeFile(ctx, &fmpb.DescribeRequest{ResourceId: jarId})
-	_, err = client.DescribeFile(ctx, &fmpb.DescribeRequest{ResourceId: deleteId1})
+	_, err := client.DescribeFile(ctx, &resource.DescribeRequest{ResourceId: jarId})
+	_, err = client.DescribeFile(ctx, &resource.DescribeRequest{ResourceId: deleteId1})
 	require.Nil(t, err, "%+v", err)
 }
 
@@ -209,7 +208,7 @@ func Test_ListFiles(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing list files by dir")
 	fmt.Println("===================================================================")
-	listReqs := []*fmpb.ListRequest{
+	listReqs := []*resource.ListRequest{
 		{ResourceId: "-1", SpaceId: spaceId, Limit: 10, Offset: 0, ResourceType: 1},
 		{ResourceId: dirId1, SpaceId: spaceId, Limit: 10, Offset: 0, ResourceType: 1},
 	}
@@ -223,7 +222,7 @@ func Test_DeleteFiles(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting file")
 	fmt.Println("===================================================================")
-	testDeleteRequests := &fmpb.DeleteRequest{
+	testDeleteRequests := &resource.DeleteRequest{
 		Ids: deleteIds,
 	}
 	_, err := client.Delete(ctx, testDeleteRequests)
@@ -235,13 +234,13 @@ func Test_UpdateFile(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing updating file")
 	fmt.Println("===================================================================")
-	var testUpdateRequests []*fmpb.UpdateFileRequest
-	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
+	var testUpdateRequests []*resource.UpdateFileRequest
+	testUpdateRequests = append(testUpdateRequests, &resource.UpdateFileRequest{
 		ResourceId:   jarId,
 		ResourceName: "test_jar.jar",
 		ResourceType: 1,
 	})
-	testUpdateRequests = append(testUpdateRequests, &fmpb.UpdateFileRequest{
+	testUpdateRequests = append(testUpdateRequests, &resource.UpdateFileRequest{
 		ResourceId:   udfId,
 		ResourceName: "test_udf.jar",
 		ResourceType: 2,
@@ -257,7 +256,7 @@ func Test_DeleteFilesBySpaceIds(t *testing.T) {
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting all")
 	fmt.Println("===================================================================")
-	deleteAllRequest := &fmpb.DeleteSpaceRequest{SpaceIds: spaceIds}
+	deleteAllRequest := &resource.DeleteSpaceRequest{SpaceIds: spaceIds}
 	_, err := client.DeleteSpace(ctx, deleteAllRequest)
 	require.Nil(t, err, "%+v", err)
 }
