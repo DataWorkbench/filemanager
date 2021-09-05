@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/DataWorkbench/common/utils/buildinfo"
+	"github.com/DataWorkbench/resourcemanager/config"
+	"github.com/DataWorkbench/resourcemanager/server"
+
 	"github.com/spf13/cobra"
 
-	"github.com/DataWorkbench/common/utils/buildinfo"
-	"github.com/DataWorkbench/filemanager/config"
-	"github.com/DataWorkbench/filemanager/server"
 )
 
 var (
@@ -16,9 +17,9 @@ var (
 )
 
 var root = &cobra.Command{
-	Use:   "fileManager",
-	Short: "DataWorkbench File Manager",
-	Long:  "DataWorkbench File Manager",
+	Use:   "resourceManager",
+	Short: "DataWorkbench Resource Manager",
+	Long:  "DataWorkbench Resource Manager",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		if versionFlag {

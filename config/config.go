@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
@@ -12,13 +11,15 @@ import (
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/loader"
+
+	"github.com/go-playground/validator/v10"
 )
 
 // The config file path used by Load config
 var FilePath string
 
 const (
-	envPrefix = "FILE_MANAGER"
+	envPrefix = "RESOURCE_MANAGER"
 )
 
 // Config is the configuration settings for spacemanager

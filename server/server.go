@@ -12,10 +12,10 @@ import (
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/common/utils/buildinfo"
-	"github.com/DataWorkbench/filemanager/config"
-	"github.com/DataWorkbench/filemanager/executor"
 	"github.com/DataWorkbench/glog"
-	"github.com/DataWorkbench/gproto/pkg/fmpb"
+	"github.com/DataWorkbench/gproto/pkg/resource"
+	"github.com/DataWorkbench/resourcemanager/config"
+	"github.com/DataWorkbench/resourcemanager/executor"
 
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
@@ -60,7 +60,7 @@ func Start() (err error) {
 		return
 	}
 	rpcServer.Register(func(s *grpc.Server) {
-		fmpb.RegisterFileManagerServer(s, NewFileManagerServer(executor.NewFileManagerExecutor(db, lp, cfg.HdfsServer)))
+		resource.RegisterResourceManagerServer(s, NewResourceManagerServer(executor.NewFileManagerExecutor(db, lp, cfg.HdfsServer)))
 	})
 
 	// handle signal
@@ -83,7 +83,7 @@ func Start() (err error) {
 	}
 
 	go func() {
-		if err := metricServer.ListenAndServe(); err != nil {
+		if err = metricServer.ListenAndServe(); err != nil {
 			return
 		}
 	}()

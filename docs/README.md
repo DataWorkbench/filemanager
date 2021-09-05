@@ -39,6 +39,6 @@ make generate
 
 - 启动服务
 ```bash
-./build/bin/filemanager start -c config/config.yaml
+./build/bin/resourcemanager start -c config/config.yaml
 ```
 
