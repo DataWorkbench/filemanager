@@ -46,11 +46,14 @@ func (ex *ResourceManagerExecutor) CreateDir(ctx context.Context, spaceId, dirNa
 			return nil, err
 		}
 	}
-	if parentId == "" {
-		parentId = "-1"
-	}
 
 	db := ex.db.WithContext(ctx)
+	if parentId == "" {
+		parentId = "-1"
+	} else if db.Where("pid = ?", parentId).Find(&Resource{}).RowsAffected == 0 {
+		return nil, qerror.ResourceNotExists
+	}
+
 	fileManger := Resource{
 		ResourceId: sourceId,
 		SpaceId:    spaceId,
@@ -99,10 +102,9 @@ func (ex *ResourceManagerExecutor) UploadFile(fu resource.ResourceManager_Upload
 		db := ex.db.WithContext(fu.Context())
 		if recv.ParentId == "" {
 			recv.ParentId = "-1"
-		} else {
-			if db.Where("pid = ?", recv.ParentId).Find(&Resource{}).RowsAffected == 0 {
-				return qerror.ResourceNotExists
-			}
+		} else if db.Where("pid = ?", recv.ParentId).Find(&Resource{}).RowsAffected == 0 {
+			return qerror.ResourceNotExists
+
 		}
 
 		resource.SpaceId = recv.SpaceId
