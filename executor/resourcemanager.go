@@ -96,9 +96,15 @@ func (ex *ResourceManagerExecutor) UploadFile(fu resource.ResourceManager_Upload
 				return
 			}
 		}
+		db := ex.db.WithContext(fu.Context())
 		if recv.ParentId == "" {
 			recv.ParentId = "-1"
+		} else {
+			if db.Where("pid = ?", recv.ParentId).Find(&Resource{}).RowsAffected == 0 {
+				return qerror.ResourceNotExists
+			}
 		}
+
 		resource.SpaceId = recv.SpaceId
 		resource.ParentId = recv.ParentId
 		resource.Type = recv.ResourceType
@@ -110,7 +116,6 @@ func (ex *ResourceManagerExecutor) UploadFile(fu resource.ResourceManager_Upload
 			return
 		}
 
-		db := ex.db.WithContext(fu.Context())
 		//TODO 加锁
 		if result := db.Where(Resource{
 			SpaceId:  resource.SpaceId,
