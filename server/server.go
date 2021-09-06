@@ -12,8 +12,10 @@ import (
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/common/utils/buildinfo"
+	"github.com/DataWorkbench/gproto/pkg/respb"
+
 	"github.com/DataWorkbench/glog"
-	"github.com/DataWorkbench/gproto/pkg/resource"
+
 	"github.com/DataWorkbench/resourcemanager/config"
 	"github.com/DataWorkbench/resourcemanager/executor"
 
@@ -60,7 +62,7 @@ func Start() (err error) {
 		return
 	}
 	rpcServer.Register(func(s *grpc.Server) {
-		resource.RegisterResourceManagerServer(s, NewResourceManagerServer(executor.NewFileManagerExecutor(db, lp, cfg.HdfsServer)))
+		respb.RegisterResourceServer(s, NewResourceManagerServer(executor.NewResourceManagerExecutor(db, lp, cfg.HdfsServer)))
 	})
 
 	// handle signal

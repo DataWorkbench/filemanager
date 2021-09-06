@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/DataWorkbench/loader"
 
 	"github.com/go-playground/validator/v10"
+	"gopkg.in/yaml.v3"
 )
 
 // The config file path used by Load config

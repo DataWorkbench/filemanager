@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DataWorkbench/common/utils/buildinfo"
 	"github.com/DataWorkbench/resourcemanager/config"
 	"github.com/DataWorkbench/resourcemanager/server"
 
+	"github.com/DataWorkbench/common/utils/buildinfo"
 	"github.com/spf13/cobra"
 )
 
