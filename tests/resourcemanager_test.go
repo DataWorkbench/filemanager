@@ -77,7 +77,7 @@ func init() {
 
 	ln := logger.Clone()
 	ln.WithFields().AddString("rid", reqId)
-	ctx = grpcwrap.ContextWithRequest(context.Background(), ln, reqId)
+	ctx = glog.WithContext(ctx, ln)
 }
 
 func Test_CreateDir(t *testing.T) {
@@ -124,8 +124,6 @@ func Test_UploadFile(t *testing.T) {
 
 		{ResourceId: jarId, SpaceId: spaceId, ResourceType: 1, ResourceName: "jar-window1.jar"},
 		{ResourceId: udfId, SpaceId: spaceId, ResourceType: 1, ResourceName: "udf-window2.jar"},
-
-
 	}
 
 	for index, v := range uploadRequest {
@@ -178,7 +176,7 @@ func Test_DownloadFile(t *testing.T) {
 		recv   *resource.DownloadResponse
 	)
 
-	f, err := os.Create(fmt.Sprintf("../resources/test_download.jar"))
+	f, err := os.Create("../resources/test_download.jar")
 	require.Nil(t, err, "%+v", err)
 	stream, err = client.DownloadFile(ctx, &resource.DownloadRequest{ResourceId: jarId})
 	require.Nil(t, err, "%+v", err)
@@ -200,6 +198,7 @@ func Test_DescribeFile(t *testing.T) {
 	fmt.Println("testing describe")
 	fmt.Println("===================================================================")
 	_, err := client.DescribeFile(ctx, &resource.DescribeRequest{ResourceId: jarId})
+	require.Nil(t, err, "%+v", err)
 	_, err = client.DescribeFile(ctx, &resource.DescribeRequest{ResourceId: deleteId1})
 	require.Nil(t, err, "%+v", err)
 }
@@ -252,7 +251,7 @@ func Test_UpdateFile(t *testing.T) {
 }
 
 func Test_DeleteFilesBySpaceIds(t *testing.T) {
-	time.Sleep(time.Second*1)
+	time.Sleep(time.Second * 1)
 	fmt.Println("===================================================================")
 	fmt.Println("testing deleting all")
 	fmt.Println("===================================================================")

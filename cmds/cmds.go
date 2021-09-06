@@ -9,7 +9,6 @@ import (
 	"github.com/DataWorkbench/resourcemanager/server"
 
 	"github.com/spf13/cobra"
-
 )
 
 var (
@@ -43,10 +42,10 @@ var start = &cobra.Command{
 	},
 }
 
-func Execute(){
+func Execute() {
 	root.AddCommand(start)
 
-	if err := root.Execute();err!=nil{
+	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

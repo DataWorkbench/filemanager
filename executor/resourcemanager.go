@@ -2,17 +2,14 @@ package executor
 
 import (
 	"context"
-	"io"
-	"os"
-	"regexp"
-	"strings"
-
 	"github.com/DataWorkbench/common/constants"
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/DataWorkbench/common/utils/idgenerator"
 	"github.com/DataWorkbench/glog"
 	"github.com/DataWorkbench/gproto/pkg/model"
 	"github.com/DataWorkbench/gproto/pkg/resource"
+	"io"
+	"os"
 
 	"github.com/colinmarc/hdfs"
 	"gorm.io/gorm"
@@ -50,7 +47,7 @@ func (ex *ResourceManagerExecutor) CreateDir(ctx context.Context, spaceId, dirNa
 	db := ex.db.WithContext(ctx)
 	if parentId == "" {
 		parentId = "-1"
-	} else if db.Where("pid = ?", parentId).Find(&Resource{}).RowsAffected == 0 {
+	} else if db.Where("id = ? and is_directory = 1", parentId).Find(&Resource{}).RowsAffected == 0 {
 		return nil, qerror.ResourceNotExists
 	}
 
@@ -83,7 +80,7 @@ func (ex *ResourceManagerExecutor) UploadFile(fu resource.ResourceManager_Upload
 		resource    Resource
 		receiveSize int64
 		batch       int
-		receiveByte []byte
+		//receiveByte []byte
 		//checkmd5       string
 	)
 	if recv, err = fu.Recv(); err != nil {
@@ -102,9 +99,8 @@ func (ex *ResourceManagerExecutor) UploadFile(fu resource.ResourceManager_Upload
 		db := ex.db.WithContext(fu.Context())
 		if recv.ParentId == "" {
 			recv.ParentId = "-1"
-		} else if db.Where("pid = ?", recv.ParentId).Find(&Resource{}).RowsAffected == 0 {
+		} else if db.Where("id = ? and is_directory = 1", recv.ParentId).Find(&Resource{}).RowsAffected == 0 {
 			return qerror.ResourceNotExists
-
 		}
 
 		resource.SpaceId = recv.SpaceId
@@ -184,7 +180,7 @@ func (ex *ResourceManagerExecutor) UploadFile(fu resource.ResourceManager_Upload
 				_ = client.Remove(hdfsPath)
 				return
 			}
-			receiveByte = append(receiveByte, recv.Data...)
+			//receiveByte = append(receiveByte, recv.Data...)
 			receiveSize += int64(batch)
 		}
 	}
@@ -411,45 +407,45 @@ func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, resourceId 
 	return rsp, nil
 }
 
-func checkAndGetFile(path *string) (fileName string, err error) {
-	if !strings.HasSuffix(*path, ".jar") {
-		err = qerror.InvalidParams.Format("fileName")
-		return
-	}
-	if !strings.HasPrefix(*path, fileSplit) {
-		*path = fileSplit + *path
-	}
-	filePath := *path
-	fileName = filePath[strings.LastIndex(filePath, fileSplit)+1:]
-	if *path = filePath[:strings.LastIndex(filePath, fileSplit)+1]; strings.EqualFold(*path, fileSplit) {
-		return
-	}
-	dirReg := `^\/(\w+\/?)+$`
-	if ok, _ := regexp.Match(dirReg, []byte(*path)); !ok {
-		err = qerror.InvalidParams.Format("filePath")
-		return
-	}
-	return
-}
+//func checkAndGetFile(path *string) (fileName string, err error) {
+//	if !strings.HasSuffix(*path, ".jar") {
+//		err = qerror.InvalidParams.Format("fileName")
+//		return
+//	}
+//	if !strings.HasPrefix(*path, fileSplit) {
+//		*path = fileSplit + *path
+//	}
+//	filePath := *path
+//	fileName = filePath[strings.LastIndex(filePath, fileSplit)+1:]
+//	if *path = filePath[:strings.LastIndex(filePath, fileSplit)+1]; strings.EqualFold(*path, fileSplit) {
+//		return
+//	}
+//	dirReg := `^\/(\w+\/?)+$`
+//	if ok, _ := regexp.Match(dirReg, []byte(*path)); !ok {
+//		err = qerror.InvalidParams.Format("filePath")
+//		return
+//	}
+//	return
+//}
 
-func checkDirName(dir string) (dirName string, err error) {
-	if dir == fileSplit {
-		dirName = fileSplit
-		return
-	}
-	if !strings.HasSuffix(dir, fileSplit) {
-		dir = dir + fileSplit
-	}
-	if !strings.HasPrefix(dir, fileSplit) {
-		dir = fileSplit + dir
-	}
-	dirReg := `^\/(\w+\/?)+$`
-	if ok, _ := regexp.Match(dirReg, []byte(dir)); !ok {
-		err = qerror.InvalidParams.Format("filePath")
-		return
-	}
-	return
-}
+//func checkDirName(dir string) (dirName string, err error) {
+//	if dir == fileSplit {
+//		dirName = fileSplit
+//		return
+//	}
+//	if !strings.HasSuffix(dir, fileSplit) {
+//		dir = dir + fileSplit
+//	}
+//	if !strings.HasPrefix(dir, fileSplit) {
+//		dir = fileSplit + dir
+//	}
+//	dirReg := `^\/(\w+\/?)+$`
+//	if ok, _ := regexp.Match(dirReg, []byte(dir)); !ok {
+//		err = qerror.InvalidParams.Format("filePath")
+//		return
+//	}
+//	return
+//}
 
 func getHdfsPath(spaceId, resourceId string) string {
 	return fileSplit + spaceId + fileSplit + resourceId + ".jar"
