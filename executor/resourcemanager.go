@@ -97,15 +97,23 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 		batch       int
 		check       string
 	)
+	if recv, err = re.Recv(); err != nil {
+		return
+	}
+	if res.Id, err = ex.idGenerator.Take(); err != nil {
+		return
+	}
 	tx := ex.db.Begin().WithContext(re.Context())
 	if err = tx.Error; err != nil {
 		return
 	}
+
 	defer func() {
 		if err == nil {
-			err = tx.Commit().Error
-		}
-		if err != nil {
+			if err = tx.Commit().Error; err == nil {
+				err = re.SendAndClose(&response.UploadFile{Id: res.Id})
+			}
+		} else {
 			tx.Rollback()
 		}
 	}()
@@ -120,14 +128,6 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 		return
 	}
 
-	if recv, err = re.Recv(); err != nil {
-		return
-	}
-	if recv != nil {
-		if res.Id, err = ex.idGenerator.Take(); err != nil {
-			return
-		}
-	}
 	res.SpaceId = recv.SpaceId
 	res.Pid = recv.ParentId
 	res.Type = recv.ResourceType
@@ -158,7 +158,9 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 		}
 	}
 	defer func() {
-		if err != nil {
+		if err == nil {
+			_ = writer.Close()
+		} else {
 			_ = client.Remove(hdfsPath)
 		}
 	}()
@@ -179,7 +181,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 			if err = tx.Table(resourceTableName).Create(&res).Error; err != nil {
 				return
 			}
-			return re.SendAndClose(&response.UploadFile{Id: res.Id})
+			return
 		}
 
 		if err != nil {
@@ -238,7 +240,7 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 	}
 }
 
-func (ex *ResourceManagerExecutor) ListFiles(ctx context.Context, resourceId, spaceId string, resourceType int32, limit, offset int32) (rsp []*model.Resource, count int64, err error) {
+func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, resourceId, spaceId string, resourceType int32, limit, offset int32) (rsp []*model.Resource, count int64, err error) {
 	db := ex.db.WithContext(ctx)
 	resourceTypes := []int32{0}
 
@@ -264,7 +266,7 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 		Name:    resourceName,
 		Type:    resourceType,
 	}
-	if err = db.Table(resourceTableName).Save(&info).Error; err != nil {
+	if err = db.Table(resourceTableName).Updates(&info).Error; err != nil {
 		return nil, err
 	}
 	return &model.EmptyStruct{}, nil
@@ -319,6 +321,9 @@ func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []st
 func deleteByIds(ids []string, db *gorm.DB, deleteInfoMap map[string][]string, pid string) (err error) {
 	var sourceIds []string
 	for _, id := range ids {
+		if id == "" {
+			continue
+		}
 		var res model.Resource
 		if result := db.Table(resourceTableName).Where(&model.Resource{Id: id}).First(&res); result.RowsAffected == 0 {
 			return qerror.ResourceNotExists

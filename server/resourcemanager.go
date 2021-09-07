@@ -8,6 +8,7 @@ import (
 
 	"github.com/DataWorkbench/gproto/pkg/request"
 	"github.com/DataWorkbench/gproto/pkg/response"
+
 	"github.com/DataWorkbench/resourcemanager/executor"
 
 	"github.com/DataWorkbench/gproto/pkg/model"
@@ -43,8 +44,8 @@ func (rm *ResourceManagerServer) DescribeFile(context.Context, *request.Describe
 	return nil, status.Errorf(codes.Unimplemented, "method DescribeFile not implemented")
 }
 
-func (rm *ResourceManagerServer) ListFiles(ctx context.Context, req *request.ListResources) (*response.ListResources, error) {
-	infos, count, err := rm.executor.ListFiles(ctx, req.ResourceId, req.SpaceId, req.ResourceType, req.Limit, req.Offset)
+func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request.ListResources) (*response.ListResources, error) {
+	infos, count, err := rm.executor.ListResources(ctx, req.ResourceId, req.SpaceId, req.ResourceType, req.Limit, req.Offset)
 	if err != nil {
 		return nil, err
 	}
