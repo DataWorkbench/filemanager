@@ -62,7 +62,8 @@ func (rm *ResourceManagerServer) UpdateResource(ctx context.Context, req *reques
 }
 
 func (rm *ResourceManagerServer) DeleteResources(ctx context.Context, req *request.DeleteResources) (*model.EmptyStruct, error) {
-	return rm.executor.DeleteResources(ctx, req.ResourceIds, req.SpaceId)
+	err:= rm.executor.DeleteResources(ctx,req.ResourceIds,req.SpaceId)
+	return &model.EmptyStruct{},err
 }
 
 func (rm *ResourceManagerServer) DeleteSpaces(ctx context.Context, req *request.DeleteWorkspaces) (*model.EmptyStruct, error) {

@@ -66,7 +66,7 @@ func (ex *ResourceManagerExecutor) CreateDir(ctx context.Context, spaceId, dirNa
 		return
 	}
 	if tx.Table(resourceTableName).Select("id").Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where(model.Resource{SpaceId: spaceId, Pid: parentId, Name: dirName}).Take(&x).RowsAffected > 0 {
+		Where("pid = ? and space_id = ? and name = ?", parentId, spaceId, dirName).Take(&x).RowsAffected > 0 {
 		err = qerror.ResourceAlreadyExists
 		return
 	}
@@ -123,7 +123,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 		err = qerror.ResourceNotExists
 		return
 	}
-	if result := tx.Table(resourceTableName).Select("id").Where(model.Resource{Pid: recv.ParentId, SpaceId: recv.SpaceId, Name: recv.ResourceName}).Take(&x); result.RowsAffected > 0 {
+	if result := tx.Table(resourceTableName).Select("id").Where("pid = ? and space_id = ? and name = ?", recv.ParentId, recv.SpaceId, recv.ResourceName).Take(&x); result.RowsAffected > 0 {
 		err = qerror.ResourceAlreadyExists
 		return
 	}
@@ -272,7 +272,16 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 	return &model.EmptyStruct{}, nil
 }
 
-func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []string, spaceId string) (rsp *model.EmptyStruct, err error) {
+func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []string, spaceId string) (err error) {
+
+	client, err := hdfs.New(ex.hdfsServer)
+	if err != nil {
+		return
+	}
+	defer func() {
+		_ = client.Close()
+	}()
+
 	tx := ex.db.Begin().WithContext(ctx)
 	defer func() {
 		if err == nil {
@@ -284,65 +293,112 @@ func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []st
 	}()
 
 	if len(ids) == 0 {
-		return nil, qerror.InvalidParams.Format("ids")
+		return qerror.InvalidParams.Format("ids")
 	}
-	client, err := hdfs.New(ex.hdfsServer)
-	if err != nil {
-		return
-	}
-	defer func() {
-		_ = client.Close()
-	}()
-
-	deleteInfoMap := make(map[string][]string)
-	if err = deleteByIds(ids, tx, deleteInfoMap, "-1"); err != nil {
-		return
-	}
-	for key, value := range deleteInfoMap {
-		for _, id := range value {
-			if err = tx.Table(resourceTableName).Delete(model.Resource{Id: id}).Error; err != nil {
-				return
-			}
-			if err = client.Remove(getHdfsPath(spaceId, id)); err != nil {
-				if _, ok := err.(*os.PathError); !ok {
-					return
-				}
-			}
-		}
-		if key != "-1" {
-			if err = tx.Table(resourceTableName).Delete(model.Resource{Id: key, SpaceId: spaceId}).Error; err != nil {
-				return
-			}
-		}
-	}
-	return &model.EmptyStruct{}, nil
+	err = deleteById(ids, spaceId, tx, client)
+	return
 }
 
-func deleteByIds(ids []string, db *gorm.DB, deleteInfoMap map[string][]string, pid string) (err error) {
-	var sourceIds []string
+func deleteById(ids []string, spaceId string, tx *gorm.DB, client *hdfs.Client) (err error) {
 	for _, id := range ids {
-		if id == "" {
-			continue
-		}
 		var res model.Resource
-		if result := db.Table(resourceTableName).Where(&model.Resource{Id: id}).First(&res); result.RowsAffected == 0 {
+		if result := tx.Table(resourceTableName).Where(&model.Resource{Id: id}).First(&res); result.RowsAffected == 0 {
 			return qerror.ResourceNotExists
 		}
 		if res.IsDirectory {
-			deleteInfoMap[id] = []string{}
-			if result := db.Table(resourceTableName).Select("id").Where("pid = ?", id).Find(&sourceIds); result.RowsAffected > 0 {
-				if err = deleteByIds(sourceIds, db, deleteInfoMap, id); err != nil {
+			var sourceIds []string
+			if result := tx.Table(resourceTableName).Select("id").Where("pid = ?", id).Find(&sourceIds); result.RowsAffected > 0 {
+				if err = deleteById(sourceIds, spaceId, tx, client); err != nil {
 					return
 				}
 			} else if err = result.Error; err != nil {
 				return
 			}
 		} else {
-			deleteInfoMap[pid] = append(deleteInfoMap[pid], id)
+			if err = client.Remove(getHdfsPath(spaceId, id)); err != nil {
+				if _, ok := err.(*os.PathError); !ok {
+					return
+				}
+			}
+		}
+		if err = tx.Table(resourceTableName).Delete(model.Resource{Id: id}).Error; err != nil {
+			return
 		}
 	}
 	return
 }
+
+//func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []string, spaceId string) (rsp *model.EmptyStruct, err error) {
+//	tx := ex.db.Begin().WithContext(ctx)
+//	defer func() {
+//		if err == nil {
+//			tx.Commit()
+//		}
+//		if err != nil {
+//			tx.Rollback()
+//		}
+//	}()
+//
+//	if len(ids) == 0 {
+//		return nil, qerror.InvalidParams.Format("ids")
+//	}
+//	client, err := hdfs.New(ex.hdfsServer)
+//	if err != nil {
+//		return
+//	}
+//	defer func() {
+//		_ = client.Close()
+//	}()
+//
+//	deleteInfoMap := make(map[string][]string)
+//	if err = deleteByIds(ids, tx, deleteInfoMap, "-1"); err != nil {
+//		return
+//	}
+//	for key, value := range deleteInfoMap {
+//		for _, id := range value {
+//			if err = tx.Table(resourceTableName).Delete(model.Resource{Id: id}).Error; err != nil {
+//				return
+//			}
+//			if err = client.Remove(getHdfsPath(spaceId, id)); err != nil {
+//				if _, ok := err.(*os.PathError); !ok {
+//					return
+//				}
+//			}
+//		}
+//		if key != "-1" {
+//			if err = tx.Table(resourceTableName).Delete(model.Resource{Id: key, SpaceId: spaceId}).Error; err != nil {
+//				return
+//			}
+//		}
+//	}
+//	return &model.EmptyStruct{}, nil
+//}
+//
+//func deleteByIds(ids []string, db *gorm.DB, deleteInfoMap map[string][]string, pid string) (err error) {
+//	var sourceIds []string
+//	for _, id := range ids {
+//		if id == "" {
+//			continue
+//		}
+//		var res model.Resource
+//		if result := db.Table(resourceTableName).Where(&model.Resource{Id: id}).First(&res); result.RowsAffected == 0 {
+//			return qerror.ResourceNotExists
+//		}
+//		if res.IsDirectory {
+//			deleteInfoMap[id] = []string{}
+//			if result := db.Table(resourceTableName).Select("id").Where("pid = ?", id).Find(&sourceIds); result.RowsAffected > 0 {
+//				if err = deleteByIds(sourceIds, db, deleteInfoMap, id); err != nil {
+//					return
+//				}
+//			} else if err = result.Error; err != nil {
+//				return
+//			}
+//		} else {
+//			deleteInfoMap[pid] = append(deleteInfoMap[pid], id)
+//		}
+//	}
+//	return
+//}
 
 func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []string) (*model.EmptyStruct, error) {
 	db := ex.db.WithContext(ctx)
