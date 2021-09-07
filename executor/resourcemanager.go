@@ -2,8 +2,11 @@ package executor
 
 import (
 	"context"
+	"crypto/md5"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/DataWorkbench/glog"
 	"gorm.io/gorm/clause"
@@ -12,7 +15,6 @@ import (
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/DataWorkbench/common/utils/idgenerator"
 
-	"github.com/DataWorkbench/gproto/pkg/request"
 	"github.com/DataWorkbench/gproto/pkg/respb"
 	"github.com/DataWorkbench/gproto/pkg/response"
 
@@ -43,12 +45,6 @@ func NewResourceManagerExecutor(db *gorm.DB, l *glog.Logger, hdfsServer string) 
 }
 
 func (ex *ResourceManagerExecutor) CreateDir(ctx context.Context, spaceId, dirName, parentId string) (rsp *response.CreateDir, err error) {
-	resourceId, err := ex.idGenerator.Take()
-	if err != nil {
-		return nil, err
-	}
-	rsp = &response.CreateDir{Id: resourceId}
-
 	tx := ex.db.Begin().WithContext(ctx)
 	if err = tx.Error; err != nil {
 		return nil, err
@@ -74,6 +70,11 @@ func (ex *ResourceManagerExecutor) CreateDir(ctx context.Context, spaceId, dirNa
 		err = qerror.ResourceAlreadyExists
 		return
 	}
+
+	resourceId, err := ex.idGenerator.Take()
+	if err != nil {
+		return nil, err
+	}
 	info := model.Resource{
 		Id:          resourceId,
 		Pid:         parentId,
@@ -82,6 +83,7 @@ func (ex *ResourceManagerExecutor) CreateDir(ctx context.Context, spaceId, dirNa
 		IsDirectory: true,
 	}
 	err = tx.Table(resourceTableName).Create(&info).Error
+	rsp = &response.CreateDir{Id: resourceId}
 	return
 }
 
@@ -89,21 +91,12 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	var (
 		client      *hdfs.Client
 		writer      *hdfs.FileWriter
-		recv        *request.UploadFile
+		recv        *respb.UploadFileRequest
 		res         model.Resource
 		receiveSize int64
 		batch       int
+		check       string
 	)
-
-	if recv, err = re.Recv(); err != nil {
-		return
-	}
-	if recv != nil {
-		if res.Id, err = ex.idGenerator.Take(); err != nil {
-			return
-		}
-	}
-
 	tx := ex.db.Begin().WithContext(re.Context())
 	if err = tx.Error; err != nil {
 		return
@@ -118,19 +111,31 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	}()
 
 	var x string
-	if recv.ParentId == "" && tx.Table(resourceTableName).Select("id").Where("id = ? and is_directory = 1", recv.ParentId).Take(&x).RowsAffected == 0 {
+	if recv.ParentId != "" && tx.Table(resourceTableName).Select("id").Where("id = ? and is_directory = 1", recv.ParentId).Take(&x).RowsAffected == 0 {
 		err = qerror.ResourceNotExists
+		return
 	}
-	if result := tx.Take(resourceTableName).Select("id").Where(model.Resource{Pid: recv.ParentId, SpaceId: recv.SpaceId, Name: recv.ResourceName}).Take(&x); result.RowsAffected > 0 {
-		return qerror.ResourceAlreadyExists
+	if result := tx.Table(resourceTableName).Select("id").Where(model.Resource{Pid: recv.ParentId, SpaceId: recv.SpaceId, Name: recv.ResourceName}).Take(&x); result.RowsAffected > 0 {
+		err = qerror.ResourceAlreadyExists
+		return
 	}
 
+	if recv, err = re.Recv(); err != nil {
+		return
+	}
+	if recv != nil {
+		if res.Id, err = ex.idGenerator.Take(); err != nil {
+			return
+		}
+	}
 	res.SpaceId = recv.SpaceId
 	res.Pid = recv.ParentId
 	res.Type = recv.ResourceType
 	res.Name = recv.ResourceName
 	res.Size = recv.Size
 	res.IsDirectory = false
+	hdfsFileDir := fileSplit + recv.SpaceId + fileSplit
+	hdfsPath := getHdfsPath(recv.SpaceId, res.Id)
 	if client, err = hdfs.New(ex.hdfsServer); err != nil {
 		return
 	}
@@ -139,8 +144,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 			_ = client.Close()
 		}
 	}()
-	hdfsFileDir := fileSplit + recv.SpaceId + fileSplit
-	hdfsPath := getHdfsPath(recv.SpaceId, res.Id)
+
 	if writer, err = client.Create(hdfsPath); err != nil {
 		if _, ok := err.(*os.PathError); ok {
 			if err = client.MkdirAll(hdfsFileDir, 0777); err != nil {
@@ -154,34 +158,40 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 		}
 	}
 	defer func() {
-		if err2 := writer.Close(); err2 != nil {
+		if err != nil {
 			_ = client.Remove(hdfsPath)
 		}
 	}()
 
+	hash := md5.New()
 	for {
 		recv, err = re.Recv()
+
 		if err == io.EOF {
 			if receiveSize != res.Size {
-				_ = client.Remove(hdfsPath)
 				ex.logger.Warn().Msg("file message lose").String("file id", res.Id).Fire()
 				return qerror.Internal
 			}
-			if err = tx.Create(&res).Error; err != nil {
-				_ = client.Remove(hdfsPath)
+			if !strings.EqualFold(fmt.Sprintf("%X", hash.Sum(nil)), check) {
+				ex.logger.Warn().Msg("file message not match").String("file id", res.Id).Fire()
+				return qerror.Internal
+			}
+			if err = tx.Table(resourceTableName).Create(&res).Error; err != nil {
 				return
 			}
 			return re.SendAndClose(&response.UploadFile{Id: res.Id})
 		}
 
 		if err != nil {
-			_ = client.Remove(hdfsPath)
 			return
 		}
+
 		if batch, err = writer.Write(recv.Data); err != nil {
-			_ = client.Remove(hdfsPath)
 			return
 		}
+
+		hash.Write(recv.Data)
+		check = recv.Md5Message
 		receiveSize += int64(batch)
 	}
 }
@@ -193,24 +203,27 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 		reader *hdfs.FileReader
 	)
 	db := ex.db.WithContext(resp.Context())
-	if err = db.Where("id = ?", resourceId).First(&info).Error; err != nil {
-		return
+	if db.Table(resourceTableName).Where("id = ?", resourceId).First(&info).RowsAffected == 0 {
+		return qerror.ResourceNotExists
 	}
 	if client, err = hdfs.New(ex.hdfsServer); err != nil {
 		return
 	}
 	defer func() {
-		_ = client.Close()
+		err = client.Close()
 	}()
 	hdfsPath := getHdfsPath(info.SpaceId, resourceId)
 	if reader, err = client.Open(hdfsPath); err != nil {
 		return
 	}
-	buf := make([]byte, 4096)
-	n := 0
+	defer func() {
+		err = reader.Close()
+	}()
 	if err = resp.Send(&response.DownloadFile{Size: info.Size, Name: info.Name}); err != nil {
 		return
 	}
+	buf := make([]byte, 4096)
+	n := 0
 	for {
 		n, err = reader.Read(buf)
 		if err == io.EOF && n == 0 {
@@ -227,27 +240,17 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 
 func (ex *ResourceManagerExecutor) ListFiles(ctx context.Context, resourceId, spaceId string, resourceType int32, limit, offset int32) (rsp []*model.Resource, count int64, err error) {
 	db := ex.db.WithContext(ctx)
-	var resourceTypes []int32
+	resourceTypes := []int32{0}
 
 	if resourceType > 0 {
-		resourceTypes = []int32{0, resourceType}
+		resourceTypes = append(resourceTypes, resourceType)
 	}
-	if resourceId == "" {
-		if err = db.Table(resourceTableName).Select("*").Where("pid IS NULL AND space_id = ? AND type IN ?", resourceId, spaceId, resourceTypes).
-			Limit(int(limit)).Offset(int(offset)).Order("update_time ASC").Scan(&rsp).Error; err != nil {
-			return
-		}
-		if err = db.Table(resourceTableName).Where("pid IS NULL AND space_id = ? AND type IN ?", resourceId, spaceId, resourceTypes).Count(&count).Error; err != nil {
-			return
-		}
-	} else {
-		if err = db.Table(resourceTableName).Select("*").Where("pid = ? AND space_id = ? AND type IN ?", resourceId, spaceId, resourceTypes).
-			Limit(int(limit)).Offset(int(offset)).Order("update_time ASC").Scan(&rsp).Error; err != nil {
-			return
-		}
-		if err = db.Table(resourceTableName).Where("pid = ? AND space_id = ? AND type IN ?", resourceId, spaceId, resourceTypes).Count(&count).Error; err != nil {
-			return
-		}
+	if err = db.Table(resourceTableName).Select("*").Where("pid = ? AND space_id = ? AND type IN ?", resourceId, spaceId, resourceTypes).
+		Limit(int(limit)).Offset(int(offset)).Order("updated ASC").Scan(&rsp).Error; err != nil {
+		return
+	}
+	if err = db.Table(resourceTableName).Where("pid = ? AND space_id = ? AND type IN ?", resourceId, spaceId, resourceTypes).Count(&count).Error; err != nil {
+		return
 	}
 	return
 }
@@ -267,8 +270,17 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 	return &model.EmptyStruct{}, nil
 }
 
-func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []string, space_id string) (rsp *model.EmptyStruct, err error) {
-	db := ex.db.WithContext(ctx)
+func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []string, spaceId string) (rsp *model.EmptyStruct, err error) {
+	tx := ex.db.Begin().WithContext(ctx)
+	defer func() {
+		if err == nil {
+			tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	if len(ids) == 0 {
 		return nil, qerror.InvalidParams.Format("ids")
 	}
@@ -281,32 +293,26 @@ func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []st
 	}()
 
 	deleteInfoMap := make(map[string][]string)
-	var spaceId string
-	if err = deleteByIds(ids, db, deleteInfoMap, "-1"); err != nil {
+	if err = deleteByIds(ids, tx, deleteInfoMap, "-1"); err != nil {
 		return
 	}
-	tx := db.Begin()
 	for key, value := range deleteInfoMap {
 		for _, id := range value {
-			if err = tx.Delete(model.Resource{Id: id}).Error; err != nil {
-				tx.Rollback()
+			if err = tx.Table(resourceTableName).Delete(model.Resource{Id: id}).Error; err != nil {
 				return
 			}
 			if err = client.Remove(getHdfsPath(spaceId, id)); err != nil {
 				if _, ok := err.(*os.PathError); !ok {
-					tx.Rollback()
 					return
 				}
 			}
 		}
 		if key != "-1" {
-			if err = db.Delete(model.Resource{Id: key, SpaceId: spaceId}).Error; err != nil {
-				tx.Rollback()
+			if err = tx.Table(resourceTableName).Delete(model.Resource{Id: key, SpaceId: spaceId}).Error; err != nil {
 				return
 			}
 		}
 	}
-	tx.Commit()
 	return &model.EmptyStruct{}, nil
 }
 
@@ -314,12 +320,12 @@ func deleteByIds(ids []string, db *gorm.DB, deleteInfoMap map[string][]string, p
 	var sourceIds []string
 	for _, id := range ids {
 		var res model.Resource
-		if result := db.Where(&model.Resource{Id: id}).First(&res); result.RowsAffected == 0 {
+		if result := db.Table(resourceTableName).Where(&model.Resource{Id: id}).First(&res); result.RowsAffected == 0 {
 			return qerror.ResourceNotExists
 		}
 		if res.IsDirectory {
 			deleteInfoMap[id] = []string{}
-			if result := db.Model(&model.Resource{}).Select("id").Where("pid = ?", id).Find(&sourceIds); result.RowsAffected > 0 {
+			if result := db.Table(resourceTableName).Select("id").Where("pid = ?", id).Find(&sourceIds); result.RowsAffected > 0 {
 				if err = deleteByIds(sourceIds, db, deleteInfoMap, id); err != nil {
 					return
 				}

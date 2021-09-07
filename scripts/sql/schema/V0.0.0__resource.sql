@@ -3,7 +3,7 @@ CREATE TABLE `resource`
     -- Resource ID, unique within a region
     `id`           VARCHAR(20)         NOT NULL,
     -- Resource Parent ID
-    `pid`          VARCHAR(20),
+    `pid`          VARCHAR(20)         NOT NULL,
     `space_id`     VARCHAR(20)         NOT NULL,
     `name`         VARCHAR(60)         NOT NULL,
     `type`         INT(1) DEFAULT 1 comment '1 jar 2 udf',
