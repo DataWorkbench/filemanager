@@ -110,9 +110,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 
 	defer func() {
 		if err == nil {
-			if err = tx.Commit().Error; err == nil {
-				err = re.SendAndClose(&response.UploadFile{Id: res.Id})
-			}
+			err = tx.Commit().Error
 		} else {
 			tx.Rollback()
 		}
@@ -181,7 +179,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 			if err = tx.Table(resourceTableName).Create(&res).Error; err != nil {
 				return
 			}
-			return
+			return re.SendAndClose(&response.UploadFile{Id: res.Id})
 		}
 
 		if err != nil {
@@ -421,6 +419,15 @@ func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []
 		}
 	}
 	return &model.EmptyStruct{}, nil
+}
+
+func (ex *ResourceManagerExecutor) CheckResourceExist(ctx context.Context, spaceId string, parentId string, name string) (err error) {
+	db := ex.db.WithContext(ctx)
+	var x string
+	if db.Table(resourceTableName).Select("id").Where("pid = ? AND space_id = ? AND name = ?", parentId, spaceId, name).Take(&x).RowsAffected != 0 {
+		err = qerror.ResourceAlreadyExists
+	}
+	return
 }
 
 //func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, resourceId string) (*resource.ResourceResponse, error) {

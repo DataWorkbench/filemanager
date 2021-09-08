@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/DataWorkbench/common/qerror"
 	"github.com/stretchr/testify/require"
 
 	"github.com/DataWorkbench/gproto/pkg/request"
@@ -63,12 +64,14 @@ func Test_CreateDir(t *testing.T) {
 	createDirResId = dir.Id
 }
 
-func Test_Update(t *testing.T) {
-	var req = request.UpdateResource{
-		ResourceId:   createDirResId,
-		ResourceName: "abc",
-		ResourceType: 0,
+func Test_Check(t *testing.T) {
+	var req = request.CreateDirectory{
+		SpaceId: spaceId,
+		DirName: "demo",
 	}
-	_, err := client.UpdateResource(ctx, &req)
+	_, err := client.CheckResourceExist(ctx, &req)
+	require.Error(t, qerror.ResourceAlreadyExists, "%+v", err)
+	req.DirName = "demo1"
+	_, err = client.CheckResourceExist(ctx, &req)
 	require.Nil(t, err, "%+v", err)
 }

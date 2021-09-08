@@ -1,9 +1,9 @@
-# spacemanater
+# resourcemanager
 
 ## 项目管理
 - 下载到本地后修改
 ```bash 
-git clone git@github.com:DataWorkbench/filemanager.git
+git clone git@github.com:DataWorkbench/resourcemanager.git
 ```
 
 - 更新依赖
@@ -21,7 +21,7 @@ make format
 make check
 ```
 
-- 编译二进制, 输出位置 ./build/bin/filemanager
+- 编译二进制, 输出位置 ./build/bin/resourcemanager
 ```bash
 make compile VERBOSE=yes
 ```

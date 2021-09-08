@@ -3,12 +3,13 @@ package server
 import (
 	"context"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/DataWorkbench/gproto/pkg/model"
 	"github.com/DataWorkbench/gproto/pkg/request"
 	"github.com/DataWorkbench/gproto/pkg/respb"
 	"github.com/DataWorkbench/gproto/pkg/response"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/DataWorkbench/resourcemanager/executor"
 )
@@ -66,4 +67,8 @@ func (rm *ResourceManagerServer) DeleteResources(ctx context.Context, req *reque
 
 func (rm *ResourceManagerServer) DeleteSpaces(ctx context.Context, req *request.DeleteWorkspaces) (*model.EmptyStruct, error) {
 	return rm.executor.DeleteSpaces(ctx, req.SpaceIds)
+}
+
+func (rm *ResourceManagerServer) CheckResourceExist(ctx context.Context, req *request.CreateDirectory) (*model.EmptyStruct, error) {
+	return &model.EmptyStruct{}, rm.executor.CheckResourceExist(ctx, req.SpaceId, req.ParentId, req.DirName)
 }
