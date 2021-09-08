@@ -3,16 +3,14 @@ package server
 import (
 	"context"
 
+	"github.com/DataWorkbench/gproto/pkg/model"
+	"github.com/DataWorkbench/gproto/pkg/request"
+	"github.com/DataWorkbench/gproto/pkg/respb"
+	"github.com/DataWorkbench/gproto/pkg/response"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/DataWorkbench/gproto/pkg/request"
-	"github.com/DataWorkbench/gproto/pkg/response"
-
 	"github.com/DataWorkbench/resourcemanager/executor"
-
-	"github.com/DataWorkbench/gproto/pkg/model"
-	"github.com/DataWorkbench/gproto/pkg/respb"
 )
 
 type ResourceManagerServer struct {
@@ -62,8 +60,8 @@ func (rm *ResourceManagerServer) UpdateResource(ctx context.Context, req *reques
 }
 
 func (rm *ResourceManagerServer) DeleteResources(ctx context.Context, req *request.DeleteResources) (*model.EmptyStruct, error) {
-	err:= rm.executor.DeleteResources(ctx,req.ResourceIds,req.SpaceId)
-	return &model.EmptyStruct{},err
+	err := rm.executor.DeleteResources(ctx, req.ResourceIds, req.SpaceId)
+	return &model.EmptyStruct{}, err
 }
 
 func (rm *ResourceManagerServer) DeleteSpaces(ctx context.Context, req *request.DeleteWorkspaces) (*model.EmptyStruct, error) {
