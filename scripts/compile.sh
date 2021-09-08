@@ -5,7 +5,7 @@ current_path=$(cd "$(dirname "${0}")" || exit 1; pwd)
 cd "${current_path}"/.. || exit 1
 
 BUILD="build"
-PROGRAM="filemanager"
+PROGRAM="resourcemanager"
 
 mkdir -p ${BUILD}/bin;
 
