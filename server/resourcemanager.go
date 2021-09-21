@@ -27,10 +27,6 @@ func NewResourceManagerServer(executor *executor.ResourceManagerExecutor) *Resou
 	}
 }
 
-func (rm *ResourceManagerServer) CreateDir(ctx context.Context, req *request.CreateDirectory) (*response.CreateDir, error) {
-	return rm.executor.CreateDir(ctx, req.SpaceId, req.DirName, req.ParentId)
-}
-
 func (rm *ResourceManagerServer) UploadFile(re respb.Resource_UploadFileServer) error {
 	return rm.executor.UploadFile(re)
 }
@@ -44,7 +40,7 @@ func (rm *ResourceManagerServer) DescribeFile(context.Context, *request.Describe
 }
 
 func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request.ListResources) (*response.ListResources, error) {
-	infos, count, err := rm.executor.ListResources(ctx, req.ResourceId, req.SpaceId, req.ResourceType, req.Limit, req.Offset)
+	infos, count, err := rm.executor.ListResources(ctx, req.SpaceId, req.ResourceType, req.Limit, req.Offset, req.SortBy, req.Reverse)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +53,7 @@ func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request
 }
 
 func (rm *ResourceManagerServer) UpdateResource(ctx context.Context, req *request.UpdateResource) (*model.EmptyStruct, error) {
-	return rm.executor.UpdateResource(ctx, req.ResourceId, req.SpaceId, req.ResourceName, req.ResourceType)
+	return rm.executor.UpdateResource(ctx, req.ResourceId, req.SpaceId, req.ResourceName)
 }
 
 func (rm *ResourceManagerServer) DeleteResources(ctx context.Context, req *request.DeleteResources) (*model.EmptyStruct, error) {
@@ -67,8 +63,4 @@ func (rm *ResourceManagerServer) DeleteResources(ctx context.Context, req *reque
 
 func (rm *ResourceManagerServer) DeleteSpaces(ctx context.Context, req *request.DeleteWorkspaces) (*model.EmptyStruct, error) {
 	return rm.executor.DeleteSpaces(ctx, req.SpaceIds)
-}
-
-func (rm *ResourceManagerServer) CheckResourceExist(ctx context.Context, req *request.CreateDirectory) (*model.EmptyStruct, error) {
-	return &model.EmptyStruct{}, rm.executor.CheckResourceExist(ctx, req.SpaceId, req.ParentId, req.DirName)
 }
