@@ -362,6 +362,24 @@ func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []
 	return &model.EmptyStruct{}, nil
 }
 
+func (ex *ResourceManagerExecutor) SelectResourceByCondition(ctx context.Context, spaceId string, name string, resourceType int32) (rsp []*model.Resource, err error) {
+	db := ex.db.WithContext(ctx).Where("space_id = ?", spaceId)
+	if name != "" {
+		db = db.Where("name = ?", name)
+	}
+	if resourceType > 0 {
+		db = db.Where("type = ?", resourceType)
+	}
+	err = db.Find(rsp).Error
+	return
+}
+
+func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, id string) (rsp *model.Resource,err error) {
+	db := ex.db.WithContext(ctx)
+	err = db.Where("id = ?", id).First(&rsp).Error
+	return
+}
+
 func getHdfsPath(spaceId, resourceId string) string {
 	return fileSplit + spaceId + fileSplit + resourceId + ".jar"
 }

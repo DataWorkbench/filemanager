@@ -3,9 +3,6 @@ package server
 import (
 	"context"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/DataWorkbench/gproto/pkg/model"
 	"github.com/DataWorkbench/gproto/pkg/request"
 	"github.com/DataWorkbench/gproto/pkg/respb"
@@ -31,7 +28,7 @@ func (rm *ResourceManagerServer) UploadFile(re respb.Resource_UploadFileServer) 
 	return rm.executor.UploadFile(re)
 }
 
-func (rm *ResourceManagerServer) ReUploadFile(re respb.Resource_ReUploadFileServer) error{
+func (rm *ResourceManagerServer) ReUploadFile(re respb.Resource_ReUploadFileServer) error {
 	return rm.executor.ReUploadFile(re)
 }
 
@@ -39,8 +36,8 @@ func (rm *ResourceManagerServer) DownloadFile(req *request.DownloadFile, resp re
 	return rm.executor.DownloadFile(req.ResourceId, resp)
 }
 
-func (rm *ResourceManagerServer) DescribeFile(context.Context, *request.DescribeFile) (*model.Resource, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DescribeFile not implemented")
+func (rm *ResourceManagerServer) DescribeFile(ctx context.Context,req *request.DescribeFile) (*model.Resource, error) {
+	return rm.executor.DescribeFile(ctx,req.ResourceId)
 }
 
 func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request.ListResources) (*response.ListResources, error) {
@@ -53,6 +50,15 @@ func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request
 		HasMore: len(infos) >= int(req.Limit),
 		Total:   count,
 	}
+	return reply, nil
+}
+
+func (rm *ResourceManagerServer) SelectResourceByCondition(ctx context.Context, req *request.ResourceConditions) (*response.ListResources, error) {
+	infos, err := rm.executor.SelectResourceByCondition(ctx, req.SpaceId, req.ResourceName, req.ResourceType)
+	if err != nil {
+		return nil, err
+	}
+	reply := &response.ListResources{Infos: infos}
 	return reply, nil
 }
 

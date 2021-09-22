@@ -18,7 +18,7 @@ metircs_server:
 mysql:
   hosts: "127.0.0.1:3306"  # required
   users: "root"  # required
-  password: "123456"  # required
+  password: "password"  # required
   database: "data_workbench"  # required
   max_idle_conn: 16
   max_open_conn: 128
