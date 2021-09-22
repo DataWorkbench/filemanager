@@ -31,6 +31,10 @@ func (rm *ResourceManagerServer) UploadFile(re respb.Resource_UploadFileServer) 
 	return rm.executor.UploadFile(re)
 }
 
+func (rm *ResourceManagerServer) ReUploadFile(re respb.Resource_ReUploadFileServer) error{
+	return rm.executor.ReUploadFile(re)
+}
+
 func (rm *ResourceManagerServer) DownloadFile(req *request.DownloadFile, resp respb.Resource_DownloadFileServer) error {
 	return rm.executor.DownloadFile(req.ResourceId, resp)
 }

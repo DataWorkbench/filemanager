@@ -69,7 +69,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 
 	//TODO first receive file message,check if file exited.
 	var x string
-	if result := tx.Table(resourceTableName).Select("id").Where("space_id = ? and name = ? and type = ?", recv.SpaceId, recv.ResourceName,recv.ResourceType).Take(&x); result.RowsAffected > 0 {
+	if result := tx.Table(resourceTableName).Select("id").Where("space_id = ? and name = ? and type = ?", recv.SpaceId, recv.ResourceName, recv.ResourceType).Take(&x); result.RowsAffected > 0 {
 		err = qerror.ResourceAlreadyExists
 		return
 	}
@@ -126,6 +126,107 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 				return
 			}
 			return re.SendAndClose(&response.UploadFile{Id: res.Id})
+		}
+
+		if err != nil {
+			return
+		}
+
+		if batch, err = writer.Write(recv.Data); err != nil {
+			return
+		}
+
+		// count total size,provided the file size right.
+		receiveSize += int64(batch)
+	}
+}
+
+func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileServer) (err error) {
+	var (
+		client      *hdfs.Client
+		writer      *hdfs.FileWriter
+		recv        *respb.ReUploadFileRequest
+		res         model.Resource
+		receiveSize int64
+		batch       int
+	)
+	recv, err = re.Recv()
+	res.Id = recv.ResourceId
+	res.SpaceId = recv.SpaceId
+
+	tx := ex.db.Begin().WithContext(re.Context())
+	if err = tx.Error; err != nil {
+		return
+	}
+
+	defer func() {
+		if err == nil {
+			err = tx.Commit().Error
+		} else {
+			tx.Rollback()
+		}
+	}()
+
+	//TODO first receive file id,check if file exited.
+	var spaceId string
+	if result := tx.Table(resourceTableName).Select("space_id").Where("id = ?", res.Id).Take(&spaceId); result.RowsAffected == 0 &&
+		spaceId != "" && spaceId == recv.SpaceId {
+		err = qerror.ResourceNotExists
+		return
+	}
+
+	//TODO second receive file message
+	if recv, err = re.Recv(); err != nil {
+		return
+	}
+	res.Size = recv.Size
+
+	hdfsFileDir := fileSplit + spaceId + fileSplit
+	hdfsPath := getHdfsPath(res.SpaceId, res.Id)
+	if client, err = hdfs.New(ex.hdfsServer); err != nil {
+		return
+	}
+	defer func() {
+		if client != nil {
+			_ = client.Close()
+		}
+	}()
+
+	if err = client.Remove(hdfsPath); err != nil {
+		return
+	}
+	if writer, err = client.Create(hdfsPath); err != nil {
+		if _, ok := err.(*os.PathError); ok {
+			if err = client.MkdirAll(hdfsFileDir, 0777); err != nil {
+				return
+			}
+			if writer, err = client.Create(hdfsPath); err != nil {
+				return
+			}
+		} else {
+			return
+		}
+	}
+	defer func() {
+		if err == nil {
+			_ = writer.Close()
+		} else {
+			_ = client.Remove(hdfsPath)
+		}
+	}()
+
+	for {
+		recv, err = re.Recv()
+
+		if err == io.EOF {
+			if receiveSize != res.Size {
+				ex.logger.Warn().Msg("file message lose").String("file id", res.Id).Fire()
+				return qerror.Internal
+			}
+			if err = tx.Table(resourceTableName).Updates(&res).Error; err != nil {
+				return
+			}
+			return re.SendAndClose(&model.EmptyStruct{})
 		}
 
 		if err != nil {
