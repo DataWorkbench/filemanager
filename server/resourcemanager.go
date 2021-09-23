@@ -63,7 +63,7 @@ func (rm *ResourceManagerServer) SelectResourceByCondition(ctx context.Context, 
 }
 
 func (rm *ResourceManagerServer) UpdateResource(ctx context.Context, req *request.UpdateResource) (*model.EmptyStruct, error) {
-	return rm.executor.UpdateResource(ctx, req.ResourceId, req.SpaceId, req.ResourceName)
+	return rm.executor.UpdateResource(ctx, req.ResourceId, req.SpaceId, req.ResourceName,req.ResourceDescription,req.ResourceType)
 }
 
 func (rm *ResourceManagerServer) DeleteResources(ctx context.Context, req *request.DeleteResources) (*model.EmptyStruct, error) {

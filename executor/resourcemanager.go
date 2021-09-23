@@ -82,6 +82,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 		return
 	}
 	res.Size = recv.Size
+	res.Description = recv.Description
 
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.Id)
@@ -300,13 +301,21 @@ func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, spaceId st
 	return
 }
 
-func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceId, spaceId, resourceName string) (*model.EmptyStruct, error) {
+func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceId, spaceId, resourceName, description string, resourceType model.Resource_Type) (*model.EmptyStruct, error) {
 	var err error
 	db := ex.db.WithContext(ctx)
 	info := model.Resource{
 		Id:      resourceId,
 		SpaceId: spaceId,
-		Name:    resourceName,
+	}
+	if resourceName != "" {
+		info.Name = resourceName
+	}
+	if description != "" {
+		info.Description = description
+	}
+	if resourceType > 0 {
+		info.Type = resourceType
 	}
 	if err = db.Table(resourceTableName).Updates(&info).Error; err != nil {
 		return nil, err
@@ -363,20 +372,20 @@ func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []
 }
 
 func (ex *ResourceManagerExecutor) SelectResourceByCondition(ctx context.Context, spaceId string, name string, resourceType int32) (rsp []*model.Resource, err error) {
-	db := ex.db.WithContext(ctx).Where("space_id = ?", spaceId)
-	if name != "" {
-		db = db.Where("name = ?", name)
-	}
+	db := ex.db.WithContext(ctx).Table(resourceTableName).Where("space_id = ?", spaceId)
 	if resourceType > 0 {
-		db = db.Where("type = ?", resourceType)
+		db.Where("type = ?", resourceType)
 	}
-	err = db.Find(rsp).Error
+	if name != "" {
+		db.Where("name like ?", "%"+name+"%")
+	}
+	err = db.Find(&rsp).Error
 	return
 }
 
-func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, id string) (rsp *model.Resource,err error) {
+func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, id string) (rsp *model.Resource, err error) {
 	db := ex.db.WithContext(ctx)
-	err = db.Where("id = ?", id).First(&rsp).Error
+	err = db.Table(resourceTableName).Where("id = ?", id).First(&rsp).Error
 	return
 }
 
