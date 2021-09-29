@@ -41,7 +41,8 @@ func (rm *ResourceManagerServer) DescribeFile(ctx context.Context,req *request.D
 }
 
 func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request.ListResources) (*response.ListResources, error) {
-	infos, count, err := rm.executor.ListResources(ctx, req.SpaceId, req.ResourceType, req.Limit, req.Offset, req.SortBy, req.Reverse)
+
+	infos, count, err := rm.executor.ListResources(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -50,15 +51,6 @@ func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request
 		HasMore: len(infos) >= int(req.Limit),
 		Total:   count,
 	}
-	return reply, nil
-}
-
-func (rm *ResourceManagerServer) SelectResourceByCondition(ctx context.Context, req *request.ResourceConditions) (*response.ListResources, error) {
-	infos, err := rm.executor.SelectResourceByCondition(ctx, req.SpaceId, req.ResourceName, req.ResourceType)
-	if err != nil {
-		return nil, err
-	}
-	reply := &response.ListResources{Infos: infos}
 	return reply, nil
 }
 

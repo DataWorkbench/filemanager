@@ -2,13 +2,16 @@ package executor
 
 import (
 	"context"
-	"io"
-	"os"
-
 	"github.com/DataWorkbench/common/constants"
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/DataWorkbench/common/utils/idgenerator"
 	"github.com/DataWorkbench/glog"
+	"github.com/DataWorkbench/gproto/pkg/request"
+	"gorm.io/gorm/clause"
+	"io"
+	"os"
+	"regexp"
+	"strings"
 
 	"github.com/DataWorkbench/gproto/pkg/respb"
 	"github.com/DataWorkbench/gproto/pkg/response"
@@ -67,20 +70,9 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 		}
 	}()
 
-	//TODO first receive file message,check if file exited.
-	var x string
-	if result := tx.Table(resourceTableName).Select("id").Where("space_id = ? and name = ? and type = ?", recv.SpaceId, recv.ResourceName, recv.ResourceType).Take(&x); result.RowsAffected > 0 {
-		err = qerror.ResourceAlreadyExists
-		return
-	}
-	res.SpaceId = recv.SpaceId
 	res.Name = recv.ResourceName
+	res.SpaceId = recv.SpaceId
 	res.Type = recv.ResourceType
-
-	//TODO second receive file message
-	if recv, err = re.Recv(); err != nil {
-		return
-	}
 	res.Size = recv.Size
 	res.Description = recv.Description
 
@@ -117,7 +109,6 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 
 	for {
 		recv, err = re.Recv()
-
 		if err == io.EOF {
 			if receiveSize != res.Size {
 				ex.logger.Warn().Msg("file message lose").String("file id", res.Id).Fire()
@@ -128,15 +119,12 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 			}
 			return re.SendAndClose(&response.UploadFile{Id: res.Id})
 		}
-
 		if err != nil {
 			return
 		}
-
 		if batch, err = writer.Write(recv.Data); err != nil {
 			return
 		}
-
 		// count total size,provided the file size right.
 		receiveSize += int64(batch)
 	}
@@ -151,7 +139,9 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 		receiveSize int64
 		batch       int
 	)
-	recv, err = re.Recv()
+	if recv, err = re.Recv();err!=nil{
+		return
+	}
 	res.Id = recv.ResourceId
 	res.SpaceId = recv.SpaceId
 
@@ -168,21 +158,13 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 		}
 	}()
 
-	//TODO first receive file id,check if file exited.
-	var spaceId string
-	if result := tx.Table(resourceTableName).Select("space_id").Where("id = ?", res.Id).Take(&spaceId); result.RowsAffected == 0 &&
-		spaceId != "" && spaceId == recv.SpaceId {
-		err = qerror.ResourceNotExists
-		return
-	}
-
-	//TODO second receive file message
+	//TODO receive file message
 	if recv, err = re.Recv(); err != nil {
 		return
 	}
 	res.Size = recv.Size
 
-	hdfsFileDir := fileSplit + spaceId + fileSplit
+	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.Id)
 	if client, err = hdfs.New(ex.hdfsServer); err != nil {
 		return
@@ -285,17 +267,59 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 	}
 }
 
-func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, spaceId string, resourceType int32, limit, offset int32, sortBy string, reverse bool) (rsp []*model.Resource, count int64, err error) {
+func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, req *request.ListResources) (rsp []*model.Resource, count int64, err error) {
 	db := ex.db.WithContext(ctx)
-	if reverse {
-		sortBy += " DESC"
+	order:=req.SortBy
+	if order == "" {
+		order = "updated"
 	}
-
-	if err = db.Table(resourceTableName).Select("*").Where("space_id = ? AND type = ?", spaceId, resourceType).
-		Limit(int(limit)).Offset(int(offset)).Order(sortBy).Scan(&rsp).Error; err != nil {
-		return
+	if req.Reverse {
+		order += " DESC"
+	}else{
+		order += " ASC"
 	}
-	if err = db.Table(resourceTableName).Where("space_id = ? AND type = ?", spaceId, resourceType).Count(&count).Error; err != nil {
+	exp:=[]clause.Expression{
+		clause.Eq{
+			Column: "space_id",
+			Value: req.SpaceId,
+		},
+	}
+	if len(req.Search) > 0 {
+		if len(req.Search) == 0 ||
+			len(req.Search) > 256 || !strings.HasSuffix(req.Search, ".jar") {
+			err = qerror.InvalidParams.Format("resource_name")
+			return
+		}
+		var reg *regexp.Regexp
+		reg, err = regexp.Compile(`[\\^?*|"<>:/\s]`)
+		if err!=nil{
+			return
+		}else if len(reg.FindString(req.Search)) > 0 {
+			err = qerror.InvalidParams.Format("resource_name")
+			return
+		}
+		exp = append(exp,clause.Eq{
+			Column: "name",
+			Value: req.Search,
+		})
+	}else if len(req.ResourceName)>0 {
+		exp = append(exp,clause.Like{
+			Column: "name",
+			Value: req.ResourceName,
+		})
+	}
+	if req.ResourceType > 0 {
+		exp = append(exp,clause.Eq{
+			Column: "type",
+			Value:  req.ResourceType,
+		})
+	}
+	if err = db.Table(resourceTableName).Select("*").Clauses(clause.Where{Exprs: exp}).
+		Limit(int(req.Limit)).Offset(int(req.Offset)).Order(order).Scan(&rsp).Error;err!=nil{
+			return
+	}
+	if err = db.Table(resourceTableName).Select("count(id)").Clauses(clause.Where{Exprs: exp}).
+		Count(&count).Error;err!=nil{
 		return
 	}
 	return
@@ -369,18 +393,6 @@ func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []
 		}
 	}
 	return &model.EmptyStruct{}, nil
-}
-
-func (ex *ResourceManagerExecutor) SelectResourceByCondition(ctx context.Context, spaceId string, name string, resourceType int32) (rsp []*model.Resource, err error) {
-	db := ex.db.WithContext(ctx).Table(resourceTableName).Where("space_id = ?", spaceId)
-	if resourceType > 0 {
-		db.Where("type = ?", resourceType)
-	}
-	if name != "" {
-		db.Where("name like ?", "%"+name+"%")
-	}
-	err = db.Find(&rsp).Error
-	return
 }
 
 func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, id string) (rsp *model.Resource, err error) {
