@@ -139,7 +139,7 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 		receiveSize int64
 		batch       int
 	)
-	if recv, err = re.Recv();err!=nil{
+	if recv, err = re.Recv(); err != nil {
 		return
 	}
 	res.Id = recv.ResourceId
@@ -269,57 +269,57 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 
 func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, req *request.ListResources) (rsp []*model.Resource, count int64, err error) {
 	db := ex.db.WithContext(ctx)
-	order:=req.SortBy
+	order := req.SortBy
 	if order == "" {
 		order = "updated"
 	}
 	if req.Reverse {
 		order += " DESC"
-	}else{
+	} else {
 		order += " ASC"
 	}
-	exp:=[]clause.Expression{
+	exp := []clause.Expression{
 		clause.Eq{
 			Column: "space_id",
-			Value: req.SpaceId,
+			Value:  req.SpaceId,
 		},
 	}
-	if len(req.Search) > 0 {
-		if len(req.Search) == 0 ||
-			len(req.Search) > 256 || !strings.HasSuffix(req.Search, ".jar") {
+	if req.ResourceName != "" && len(req.ResourceName) > 0 {
+		if len(req.ResourceName) == 0 ||
+			len(req.ResourceName) > 256 || !strings.HasSuffix(req.ResourceName, ".jar") {
 			err = qerror.InvalidParams.Format("resource_name")
 			return
 		}
 		var reg *regexp.Regexp
 		reg, err = regexp.Compile(`[\\^?*|"<>:/\s]`)
-		if err!=nil{
+		if err != nil {
 			return
-		}else if len(reg.FindString(req.Search)) > 0 {
+		} else if len(reg.FindString(req.ResourceName)) > 0 {
 			err = qerror.InvalidParams.Format("resource_name")
 			return
 		}
-		exp = append(exp,clause.Eq{
+		exp = append(exp, clause.Eq{
 			Column: "name",
-			Value: req.Search,
+			Value:  req.ResourceName,
 		})
-	}else if len(req.ResourceName)>0 {
-		exp = append(exp,clause.Like{
+	} else if len(req.Search) > 0 {
+		exp = append(exp, clause.Like{
 			Column: "name",
-			Value: req.ResourceName,
+			Value:  "%"+req.Search+"%",
 		})
 	}
 	if req.ResourceType > 0 {
-		exp = append(exp,clause.Eq{
+		exp = append(exp, clause.Eq{
 			Column: "type",
 			Value:  req.ResourceType,
 		})
 	}
 	if err = db.Table(resourceTableName).Select("*").Clauses(clause.Where{Exprs: exp}).
-		Limit(int(req.Limit)).Offset(int(req.Offset)).Order(order).Scan(&rsp).Error;err!=nil{
-			return
+		Limit(int(req.Limit)).Offset(int(req.Offset)).Order(order).Scan(&rsp).Error; err != nil {
+		return
 	}
 	if err = db.Table(resourceTableName).Select("count(id)").Clauses(clause.Where{Exprs: exp}).
-		Count(&count).Error;err!=nil{
+		Count(&count).Error; err != nil {
 		return
 	}
 	return
