@@ -1,14 +1,30 @@
 package executor
 
 import (
+	"fmt"
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/colinmarc/hdfs/v2"
 	"github.com/colinmarc/hdfs/v2/hadoopconf"
 	"os"
+	"strings"
 )
 
 type HadoopClient struct {
 	client *hdfs.Client
+}
+
+func NewHadoopFromNameNodes(hdfsServer string, username string) (*HadoopClient, error) {
+	nameNodesAddr := strings.Split(hdfsServer, ",")
+	options := hdfs.ClientOptions{
+		Addresses:           nameNodesAddr,
+		User:                username,
+		UseDatanodeHostname: false,
+	}
+	client, err := hdfs.NewClient(options)
+	if err != nil {
+		return nil, err
+	}
+	return &HadoopClient{client: client}, nil
 }
 
 func NewHadoopClientFromEnv(username string) (*HadoopClient, error) {
@@ -21,6 +37,7 @@ func NewHadoopClientFromEnv(username string) (*HadoopClient, error) {
 
 func NewHadoopClientFromConfFile(confPath string, username string) (*HadoopClient, error) {
 	conf, err := hadoopconf.Load(confPath)
+	fmt.Println(conf)
 	if err != nil || conf == nil {
 		return nil, qerror.HadoopClientCreateFailed
 	}
@@ -37,6 +54,7 @@ func NewHadoopClientFromConfMap(confMap map[string]string, username string) (*Ha
 
 func newHadoopClientFromConf(conf hadoopconf.HadoopConf, username string) (*HadoopClient, error) {
 	options := hdfs.ClientOptionsFromConf(conf)
+	fmt.Println(options)
 	if options.Addresses == nil {
 		return nil, qerror.HadoopClientCreateFailed
 	}
@@ -47,6 +65,10 @@ func newHadoopClientFromConf(conf hadoopconf.HadoopConf, username string) (*Hado
 		options.User = username
 	}
 	client, err := hdfs.NewClient(options)
+	if err != nil || client == nil {
+		fmt.Println("hdfs client create failed", err)
+		return nil, err
+	}
 	hadoopClient := HadoopClient{client}
 	return &hadoopClient, err
 }

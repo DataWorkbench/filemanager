@@ -7,7 +7,7 @@ require (
 	github.com/DataWorkbench/glog v0.0.0-20210809050640-4960fd6de6ab
 	github.com/DataWorkbench/gproto v0.0.0-20211104011919-3ac6e567ea90
 	github.com/DataWorkbench/loader v0.0.0-20210808061751-6e1ba7df5cdd
-	github.com/colinmarc/hdfs/v2 v2.2.0 // indirect
+	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/go-playground/validator/v10 v10.9.0
 	github.com/spf13/cobra v1.2.1
 	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 // indirect
