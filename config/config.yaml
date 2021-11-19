@@ -3,7 +3,7 @@
 # 1=>"debug", 2=>"info", 3=>"warn", 4=>"error", 5=>"fatal"
 log_level: 1
 
-hdfs_server: "d940f21bbf42:9000"
+hadoop_conf_dir: "config"
 
 grpc_server:
   address: "127.0.0.1:9111"  #required

@@ -7,44 +7,41 @@ import (
 	"github.com/DataWorkbench/common/utils/idgenerator"
 	"github.com/DataWorkbench/glog"
 	"github.com/DataWorkbench/gproto/pkg/request"
+	"github.com/DataWorkbench/gproto/pkg/respb"
+	"github.com/DataWorkbench/gproto/pkg/response"
+	"github.com/colinmarc/hdfs/v2"
 	"gorm.io/gorm/clause"
 	"io"
 	"os"
 	"regexp"
-	"strings"
-
-	"github.com/DataWorkbench/gproto/pkg/respb"
-	"github.com/DataWorkbench/gproto/pkg/response"
 
 	"github.com/DataWorkbench/gproto/pkg/model"
-
-	"github.com/colinmarc/hdfs"
 	"gorm.io/gorm"
 )
 
 type ResourceManagerExecutor struct {
-	db          *gorm.DB
-	idGenerator *idgenerator.IDGenerator
-	logger      *glog.Logger
-	hdfsServer  string
+	db            *gorm.DB
+	idGenerator   *idgenerator.IDGenerator
+	logger        *glog.Logger
+	hadoopConfDir string
 }
 
 const (
 	fileSplit = "/"
 )
 
-func NewResourceManagerExecutor(db *gorm.DB, l *glog.Logger, hdfsServer string) *ResourceManagerExecutor {
+func NewResourceManagerExecutor(db *gorm.DB, l *glog.Logger, hadoopConfDir string) *ResourceManagerExecutor {
 	return &ResourceManagerExecutor{
-		db:          db,
-		idGenerator: idgenerator.New(constants.FileMangerIDPrefix),
-		logger:      l,
-		hdfsServer:  hdfsServer,
+		db:            db,
+		idGenerator:   idgenerator.New(constants.FileMangerIDPrefix),
+		logger:        l,
+		hadoopConfDir: hadoopConfDir,
 	}
 }
 
 func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer) (err error) {
 	var (
-		client      *hdfs.Client
+		client      *HadoopClient
 		writer      *hdfs.FileWriter
 		recv        *respb.UploadFileRequest
 		res         model.Resource
@@ -78,21 +75,19 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.Id)
-	if client, err = hdfs.New(ex.hdfsServer); err != nil {
-		return
-	}
+	client, err = NewHadoopClientFromConfFile(ex.hadoopConfDir, "root")
 	defer func() {
 		if client != nil {
-			_ = client.Close()
+			_ = client.close()
 		}
 	}()
 
-	if writer, err = client.Create(hdfsPath); err != nil {
+	if writer, err = client.createFileWriter(hdfsPath); err != nil {
 		if _, ok := err.(*os.PathError); ok {
-			if err = client.MkdirAll(hdfsFileDir, 0777); err != nil {
+			if err = client.mkdirP(hdfsFileDir, 0777); err != nil {
 				return
 			}
-			if writer, err = client.Create(hdfsPath); err != nil {
+			if writer, err = client.createFileWriter(hdfsPath); err != nil {
 				return
 			}
 		} else {
@@ -103,7 +98,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 		if err == nil {
 			_ = writer.Close()
 		} else {
-			_ = client.Remove(hdfsPath)
+			_ = client.remove(hdfsPath)
 		}
 	}()
 
@@ -132,7 +127,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 
 func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileServer) (err error) {
 	var (
-		client      *hdfs.Client
+		client      *HadoopClient
 		writer      *hdfs.FileWriter
 		recv        *respb.ReUploadFileRequest
 		res         model.Resource
@@ -166,24 +161,22 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.Id)
-	if client, err = hdfs.New(ex.hdfsServer); err != nil {
-		return
-	}
+	client, err = NewHadoopClientFromConfFile(ex.hadoopConfDir, "root")
 	defer func() {
 		if client != nil {
-			_ = client.Close()
+			_ = client.close()
 		}
 	}()
 
-	if err = client.Remove(hdfsPath); err != nil {
+	if err = client.remove(hdfsPath); err != nil {
 		return
 	}
-	if writer, err = client.Create(hdfsPath); err != nil {
+	if writer, err = client.createFileWriter(hdfsPath); err != nil {
 		if _, ok := err.(*os.PathError); ok {
-			if err = client.MkdirAll(hdfsFileDir, 0777); err != nil {
+			if err = client.mkdirP(hdfsFileDir, 0777); err != nil {
 				return
 			}
-			if writer, err = client.Create(hdfsPath); err != nil {
+			if writer, err = client.createFileWriter(hdfsPath); err != nil {
 				return
 			}
 		} else {
@@ -194,7 +187,7 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 		if err == nil {
 			_ = writer.Close()
 		} else {
-			_ = client.Remove(hdfsPath)
+			_ = client.remove(hdfsPath)
 		}
 	}()
 
@@ -228,21 +221,19 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Resource_DownloadFileServer) (err error) {
 	var (
 		info   model.Resource
-		client *hdfs.Client
+		client *HadoopClient
 		reader *hdfs.FileReader
 	)
 	db := ex.db.WithContext(resp.Context())
 	if db.Table(resourceTableName).Where("id = ?", resourceId).First(&info).RowsAffected == 0 {
 		return qerror.ResourceNotExists
 	}
-	if client, err = hdfs.New(ex.hdfsServer); err != nil {
-		return
-	}
+	client, err = NewHadoopClientFromConfFile(ex.hadoopConfDir, "root")
 	defer func() {
-		err = client.Close()
+		err = client.close()
 	}()
 	hdfsPath := getHdfsPath(info.SpaceId, resourceId)
-	if reader, err = client.Open(hdfsPath); err != nil {
+	if reader, err = client.openFileReader(hdfsPath); err != nil {
 		return
 	}
 	defer func() {
@@ -286,7 +277,7 @@ func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, req *reque
 	}
 	if req.ResourceName != "" && len(req.ResourceName) > 0 {
 		if len(req.ResourceName) == 0 ||
-			len(req.ResourceName) > 256 || !strings.HasSuffix(req.ResourceName, ".jar") {
+			len(req.ResourceName) > 256 {
 			err = qerror.InvalidParams.Format("resource_name")
 			return
 		}
@@ -305,7 +296,7 @@ func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, req *reque
 	} else if len(req.Search) > 0 {
 		exp = append(exp, clause.Like{
 			Column: "name",
-			Value:  "%"+req.Search+"%",
+			Value:  "%" + req.Search + "%",
 		})
 	}
 	if req.ResourceType > 0 {
@@ -348,22 +339,22 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 }
 
 func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []string, spaceId string) (err error) {
-	client, err := hdfs.New(ex.hdfsServer)
+	client, err := NewHadoopClientFromConfFile(ex.hadoopConfDir, "root")
 	if err != nil {
 		return
 	}
 	defer func() {
-		_ = client.Close()
+		_ = client.close()
 	}()
 
 	if len(ids) == 0 {
 		return qerror.InvalidParams.Format("ids")
 	}
 	for _, id := range ids {
-		if err = ex.db.WithContext(ctx).Where("id = ? AND space_id = ?", id, spaceId).Delete(&model.Resource{}).Error; err != nil {
+		if err = ex.db.WithContext(ctx).Table(resourceTableName).Where("id = ? AND space_id = ?", id, spaceId).Delete(&model.Resource{}).Error; err != nil {
 			return
 		}
-		if err = client.Remove(getHdfsPath(spaceId, id)); err != nil {
+		if err = client.remove(getHdfsPath(spaceId, id)); err != nil {
 			if _, ok := err.(*os.PathError); !ok {
 				return
 			}
@@ -374,21 +365,21 @@ func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []st
 
 func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []string) (*model.EmptyStruct, error) {
 	db := ex.db.WithContext(ctx)
-	client, err := hdfs.New(ex.hdfsServer)
+	client, err := NewHadoopClientFromConfFile(ex.hadoopConfDir, "root")
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = client.close()
 	}()
 
 	for _, spaceId := range spaceIds {
-		if err = client.Remove(fileSplit + spaceId); err != nil {
+		if err = client.remove(fileSplit + spaceId); err != nil {
 			if _, ok := err.(*os.PathError); !ok {
 				return nil, err
 			}
 		}
-		if err = db.Where("space_id = ?", spaceId).Delete(&model.Resource{}).Error; err != nil {
+		if err = db.Table(resourceTableName).Where("space_id = ?", spaceId).Delete(&model.Resource{}).Error; err != nil {
 			return nil, err
 		}
 	}
