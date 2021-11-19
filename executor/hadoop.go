@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"github.com/DataWorkbench/common/qerror"
 	"github.com/colinmarc/hdfs/v2"
 	"github.com/colinmarc/hdfs/v2/hadoopconf"
 	"os"
@@ -13,7 +14,7 @@ type HadoopClient struct {
 func NewHadoopClientFromEnv(username string) (*HadoopClient, error) {
 	conf, err := hadoopconf.LoadFromEnvironment()
 	if err != nil || conf == nil {
-
+		return nil, qerror.HadoopClientCreateFailed
 	}
 	return newHadoopClientFromConf(conf, username)
 }
@@ -21,7 +22,7 @@ func NewHadoopClientFromEnv(username string) (*HadoopClient, error) {
 func NewHadoopClientFromConfFile(confPath string, username string) (*HadoopClient, error) {
 	conf, err := hadoopconf.Load(confPath)
 	if err != nil || conf == nil {
-
+		return nil, qerror.HadoopClientCreateFailed
 	}
 	return newHadoopClientFromConf(conf, username)
 }
@@ -37,10 +38,11 @@ func NewHadoopClientFromConfMap(confMap map[string]string, username string) (*Ha
 func newHadoopClientFromConf(conf hadoopconf.HadoopConf, username string) (*HadoopClient, error) {
 	options := hdfs.ClientOptionsFromConf(conf)
 	if options.Addresses == nil {
-
+		return nil, qerror.HadoopClientCreateFailed
 	}
 	if options.KerberosClient != nil {
-
+		//TODO future load kerberos file
+		options.User = username
 	} else {
 		options.User = username
 	}
