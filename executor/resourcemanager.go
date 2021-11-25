@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"time"
 
 	"github.com/DataWorkbench/gproto/pkg/model"
 	"gorm.io/gorm"
@@ -52,7 +53,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	if recv, err = re.Recv(); err != nil {
 		return
 	}
-	if res.Id, err = ex.idGenerator.Take(); err != nil {
+	if res.ResourceId, err = ex.idGenerator.Take(); err != nil {
 		return
 	}
 	tx := ex.db.Begin().WithContext(re.Context())
@@ -71,11 +72,13 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	res.Name = recv.ResourceName
 	res.SpaceId = recv.SpaceId
 	res.Type = recv.ResourceType
-	res.Size = recv.Size
+	res.ResourceSize = recv.ResourceSize
 	res.Description = recv.Description
+	res.Status = model.Resource_Enabled
+	res.CreateBy = recv.CreateBy
 
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
-	hdfsPath := getHdfsPath(res.SpaceId, res.Id)
+	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
 	client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
 	defer func() {
 		if client != nil {
@@ -106,14 +109,14 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	for {
 		recv, err = re.Recv()
 		if err == io.EOF {
-			if receiveSize != res.Size {
-				ex.logger.Warn().Msg("file message lose").String("file id", res.Id).Fire()
+			if receiveSize != res.ResourceSize {
+				ex.logger.Warn().Msg("file message lose").String("file id", res.ResourceId).Fire()
 				return qerror.Internal
 			}
 			if err = tx.Table(resourceTableName).Create(&res).Error; err != nil {
 				return
 			}
-			return re.SendAndClose(&response.UploadFile{Id: res.Id})
+			return re.SendAndClose(&response.UploadFile{Id: res.ResourceId})
 		}
 		if err != nil {
 			return
@@ -138,7 +141,7 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 	if recv, err = re.Recv(); err != nil {
 		return
 	}
-	res.Id = recv.ResourceId
+	res.ResourceId = recv.ResourceId
 	res.SpaceId = recv.SpaceId
 
 	tx := ex.db.Begin().WithContext(re.Context())
@@ -158,10 +161,10 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 	if recv, err = re.Recv(); err != nil {
 		return
 	}
-	res.Size = recv.Size
+	res.ResourceSize = recv.Size
 
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
-	hdfsPath := getHdfsPath(res.SpaceId, res.Id)
+	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
 	client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
 	defer func() {
 		if client != nil {
@@ -196,10 +199,11 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 		recv, err = re.Recv()
 
 		if err == io.EOF {
-			if receiveSize != res.Size {
-				ex.logger.Warn().Msg("file message lose").String("file id", res.Id).Fire()
+			if receiveSize != res.ResourceSize {
+				ex.logger.Warn().Msg("file message lose").String("file id", res.ResourceId).Fire()
 				return qerror.Internal
 			}
+			res.Updated = time.Now().Unix()
 			if err = tx.Table(resourceTableName).Updates(&res).Error; err != nil {
 				return
 			}
@@ -226,7 +230,7 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 		reader *hdfs.FileReader
 	)
 	db := ex.db.WithContext(resp.Context())
-	if db.Table(resourceTableName).Where("id = ?", resourceId).First(&info).RowsAffected == 0 {
+	if db.Table(resourceTableName).Where("resource_id = ? and status != ?", resourceId, model.Resource_Deleted).First(&info).RowsAffected == 0 {
 		return qerror.ResourceNotExists
 	}
 	client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
@@ -240,7 +244,7 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 	defer func() {
 		err = reader.Close()
 	}()
-	if err = resp.Send(&response.DownloadFile{Size: info.Size, Name: info.Name}); err != nil {
+	if err = resp.Send(&response.DownloadFile{Size: info.ResourceSize, Name: info.Name}); err != nil {
 		return
 	}
 	buf := make([]byte, 4096)
@@ -274,6 +278,10 @@ func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, req *reque
 		clause.Eq{
 			Column: "space_id",
 			Value:  req.SpaceId,
+		},
+		clause.Neq{
+			Column: "status",
+			Value:  model.Resource_Deleted,
 		},
 	}
 	if req.ResourceName != "" && len(req.ResourceName) > 0 {
@@ -310,7 +318,7 @@ func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, req *reque
 		Limit(int(req.Limit)).Offset(int(req.Offset)).Order(order).Scan(&rsp).Error; err != nil {
 		return
 	}
-	if err = db.Table(resourceTableName).Select("count(id)").Clauses(clause.Where{Exprs: exp}).
+	if err = db.Table(resourceTableName).Select("count(resource_id)").Clauses(clause.Where{Exprs: exp}).
 		Count(&count).Error; err != nil {
 		return
 	}
@@ -321,8 +329,8 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 	var err error
 	db := ex.db.WithContext(ctx)
 	info := model.Resource{
-		Id:      resourceId,
-		SpaceId: spaceId,
+		ResourceId: resourceId,
+		SpaceId:    spaceId,
 	}
 	if resourceName != "" {
 		info.Name = resourceName
@@ -340,56 +348,76 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 }
 
 func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []string, spaceId string) (err error) {
-	client, err := NewHadoopFromNameNodes(ex.hdfsServer, "root")
-	if err != nil {
-		return
-	}
-	defer func() {
-		_ = client.close()
-	}()
+	//client, err := NewHadoopFromNameNodes(ex.hdfsServer, "root")
+	//if err != nil {
+	//	return
+	//}
+	//defer func() {
+	//	_ = client.close()
+	//}()
 
 	if len(ids) == 0 {
 		return qerror.InvalidParams.Format("ids")
 	}
-	for _, id := range ids {
-		if err = ex.db.WithContext(ctx).Table(resourceTableName).Where("id = ? AND space_id = ?", id, spaceId).Delete(&model.Resource{}).Error; err != nil {
-			return
-		}
-		if err = client.remove(getHdfsPath(spaceId, id)); err != nil {
-			if _, ok := err.(*os.PathError); !ok {
-				return
-			}
-		}
+	eqExpr := make([]clause.Expression, len(ids))
+	for i := 0; i < len(ids); i++ {
+		eqExpr[i] = clause.Eq{Column: "resource_id", Value: ids[i]}
 	}
+
+	err = ex.db.WithContext(ctx).Table(resourceTableName).Clauses(clause.Where{
+		Exprs: []clause.Expression{
+			clause.Eq{Column: "space_id", Value: spaceId},
+			clause.Neq{Column: "status", Value: model.Resource_Deleted},
+			clause.Or(eqExpr...),
+		},
+	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": time.Now().Unix()}).Error
+	//if err = ex.db.WithContext(ctx).Table(resourceTableName).Where("id = ? AND space_id = ?", id, spaceId).Delete(&model.Resource{}).Error; err != nil {
+	//	return
+	//}
+	//if err = client.remove(getHdfsPath(spaceId, id)); err != nil {
+	//	if _, ok := err.(*os.PathError); !ok {
+	//		return
+	//	}
+	//}
 	return
 }
 
 func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []string) (*model.EmptyStruct, error) {
-	db := ex.db.WithContext(ctx)
-	client, err := NewHadoopFromNameNodes(ex.hdfsServer, "root")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = client.close()
-	}()
+	//db := ex.db.WithContext(ctx)
+	//client, err := NewHadoopFromNameNodes(ex.hdfsServer, "root")
+	//if err != nil {
+	//	return nil, err
+	//}
+	//defer func() {
+	//	_ = client.close()
+	//}()
 
-	for _, spaceId := range spaceIds {
-		if err = client.remove(fileSplit + spaceId); err != nil {
-			if _, ok := err.(*os.PathError); !ok {
-				return nil, err
-			}
-		}
-		if err = db.Table(resourceTableName).Where("space_id = ?", spaceId).Delete(&model.Resource{}).Error; err != nil {
-			return nil, err
-		}
+	//for _, spaceId := range spaceIds {
+	//	if err = client.remove(fileSplit + spaceId); err != nil {
+	//		if _, ok := err.(*os.PathError); !ok {
+	//			return nil, err
+	//		}
+	//	}
+	//	if err = db.Table(resourceTableName).Where("space_id = ?", spaceId).Delete(&model.Resource{}).Error; err != nil {
+	//		return nil, err
+	//	}
+	//}
+	eqExpr := make([]clause.Expression, len(spaceIds))
+	for i := 0; i < len(spaceIds); i++ {
+		eqExpr[i] = clause.Eq{Column: "space_id", Value: spaceIds[i]}
 	}
-	return &model.EmptyStruct{}, nil
+	err := ex.db.WithContext(ctx).Table(resourceTableName).Clauses(clause.Where{
+		Exprs: []clause.Expression{
+			clause.Neq{Column: "status", Value: model.Resource_Deleted},
+			clause.Or(eqExpr...),
+		},
+	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": time.Now().Unix()}).Error
+	return &model.EmptyStruct{}, err
 }
 
 func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, id string) (rsp *model.Resource, err error) {
 	db := ex.db.WithContext(ctx)
-	err = db.Table(resourceTableName).Where("id = ?", id).First(&rsp).Error
+	err = db.Table(resourceTableName).Where("resource_id = ?", id).First(&rsp).Error
 	return
 }
 
