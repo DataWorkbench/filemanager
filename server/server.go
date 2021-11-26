@@ -63,7 +63,7 @@ func Start() (err error) {
 		return
 	}
 	rpcServer.Register(func(s *grpc.Server) {
-		respb.RegisterResourceServer(s, NewResourceManagerServer(executor.NewResourceManagerExecutor(db, lp, cfg.HdfsServer)))
+		respb.RegisterResourceServer(s, NewResourceManagerServer(executor.NewResourceManagerExecutor(db, lp, cfg.HadoopConfDir)))
 	})
 
 	// handle signal

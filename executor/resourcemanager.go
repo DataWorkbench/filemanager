@@ -24,19 +24,19 @@ type ResourceManagerExecutor struct {
 	db          *gorm.DB
 	idGenerator *idgenerator.IDGenerator
 	logger      *glog.Logger
-	hdfsServer string
+	hadoopConfigDir string
 }
 
 const (
 	fileSplit = "/"
 )
 
-func NewResourceManagerExecutor(db *gorm.DB, l *glog.Logger, hdfsServer string) *ResourceManagerExecutor {
+func NewResourceManagerExecutor(db *gorm.DB, l *glog.Logger, hadoopConfigDir string) *ResourceManagerExecutor {
 	return &ResourceManagerExecutor{
 		db:          db,
 		idGenerator: idgenerator.New(constants.FileMangerIDPrefix),
 		logger:      l,
-		hdfsServer:  hdfsServer,
+		hadoopConfigDir:  hadoopConfigDir,
 	}
 }
 
@@ -79,7 +79,7 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
 	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
-	client, err = NewHadoopClientFromConfFile(ex.hdfsServer, "root")
+	client, err = NewHadoopClientFromConfFile(ex.hadoopConfigDir, "root")
 	defer func() {
 		if client != nil {
 			_ = client.close()
@@ -166,7 +166,7 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
 	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
-	client, err = NewHadoopClientFromConfFile(ex.hdfsServer, "root")
+	client, err = NewHadoopClientFromConfFile(ex.hadoopConfigDir, "root")
 	defer func() {
 		if client != nil {
 			_ = client.close()
@@ -235,7 +235,7 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 		return qerror.ResourceNotExists
 	}
 	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
-	client, err = NewHadoopClientFromConfFile(ex.hdfsServer, "root")
+	client, err = NewHadoopClientFromConfFile(ex.hadoopConfigDir, "root")
 	defer func() {
 		err = client.close()
 	}()
