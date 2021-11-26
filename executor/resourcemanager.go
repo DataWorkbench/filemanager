@@ -79,7 +79,8 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
-	client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
+	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
+	client, err = NewHadoopClientFromConfFile(ex.hdfsServer, "root")
 	defer func() {
 		if client != nil {
 			_ = client.close()
@@ -165,7 +166,8 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
-	client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
+	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
+	client, err = NewHadoopClientFromConfFile(ex.hdfsServer, "root")
 	defer func() {
 		if client != nil {
 			_ = client.close()
@@ -233,7 +235,8 @@ func (ex *ResourceManagerExecutor) DownloadFile(resourceId string, resp respb.Re
 	if db.Table(resourceTableName).Where("resource_id = ? and status != ?", resourceId, model.Resource_Deleted).First(&info).RowsAffected == 0 {
 		return qerror.ResourceNotExists
 	}
-	client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
+	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
+	client, err = NewHadoopClientFromConfFile(ex.hdfsServer, "root")
 	defer func() {
 		err = client.close()
 	}()
