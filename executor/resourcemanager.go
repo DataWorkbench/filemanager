@@ -24,7 +24,6 @@ type ResourceManagerExecutor struct {
 	db          *gorm.DB
 	idGenerator *idgenerator.IDGenerator
 	logger      *glog.Logger
-	//hadoopConfDir string
 	hdfsServer string
 }
 

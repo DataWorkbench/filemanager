@@ -6,7 +6,6 @@ import (
 	"github.com/colinmarc/hdfs/v2"
 	"github.com/colinmarc/hdfs/v2/hadoopconf"
 	"os"
-	"strings"
 )
 
 type HadoopClient struct {
@@ -14,13 +13,17 @@ type HadoopClient struct {
 }
 
 func NewHadoopFromNameNodes(hdfsServer string, username string) (*HadoopClient, error) {
-	nameNodesAddr := strings.Split(hdfsServer, ",")
-	options := hdfs.ClientOptions{
-		Addresses:           nameNodesAddr,
-		User:                username,
-		UseDatanodeHostname: false,
-	}
-	client, err := hdfs.NewClient(options)
+	//nameNodesAddr := strings.Split(hdfsServer, ",")
+	//options := hdfs.ClientOptions{
+	//	Addresses:           nameNodesAddr,
+	//	User:                username,
+	//	UseDatanodeHostname: false,
+	//}
+	//client, err := hdfs.NewClient(options)
+	//if err != nil {
+	//	return nil, err
+	//}
+	client, err := hdfs.New(hdfsServer)
 	if err != nil {
 		return nil, err
 	}

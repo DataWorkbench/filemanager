@@ -29,7 +29,6 @@ type Config struct {
 	GRPCServer    *grpcwrap.ServerConfig `json:"grpc_server"    yaml:"grpc_server"    env:"GRPC_SERVER"         validate:"required"`
 	MetricsServer *metrics.Config        `json:"metrics_server" yaml:"metrics_server" env:"METRICS_SERVER"      validate:"required"`
 	MySQL         *gormwrap.MySQLConfig  `json:"mysql"          yaml:"mysql"          env:"MYSQL"               validate:"required"`
-	HadoopConfDir string                 `json:"hadoop_conf_dir" yaml:"hadoop_conf_dir" env:"HADOOP_CONF_DIR"     validate:"required"`
 }
 
 func loadFromFile(cfg *Config) (err error) {
