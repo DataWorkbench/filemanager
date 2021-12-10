@@ -79,7 +79,9 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
 	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
-	client, err = NewHadoopClientFromConfFile(ex.hadoopConfigDir, "root")
+	if client, err = NewHadoopClientFromConfFile(ex.hadoopConfigDir, "root");err!=nil{
+		return
+	}
 	defer func() {
 		if client != nil {
 			_ = client.close()
@@ -89,9 +91,11 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	if writer, err = client.createFileWriter(hdfsPath); err != nil {
 		if _, ok := err.(*os.PathError); ok {
 			if err = client.mkdirP(hdfsFileDir, 0777); err != nil {
+				ex.logger.Warn().Msg("mkdir directory failed").String("directory is", hdfsFileDir).Fire()
 				return
 			}
 			if writer, err = client.createFileWriter(hdfsPath); err != nil {
+				ex.logger.Warn().Msg("create file failed").String("path is", hdfsPath).Fire()
 				return
 			}
 		} else {
@@ -119,9 +123,11 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 			return re.SendAndClose(&response.UploadFile{Id: res.ResourceId})
 		}
 		if err != nil {
+			ex.logger.Error().Msg(err.Error()).Fire()
 			return
 		}
 		if batch, err = writer.Write(recv.Data); err != nil {
+			ex.logger.Warn().Msg("write data failed").Fire()
 			return
 		}
 		// count total size,provided the file size right.
