@@ -21,9 +21,9 @@ import (
 )
 
 type ResourceManagerExecutor struct {
-	db          *gorm.DB
-	idGenerator *idgenerator.IDGenerator
-	logger      *glog.Logger
+	db              *gorm.DB
+	idGenerator     *idgenerator.IDGenerator
+	logger          *glog.Logger
 	hadoopConfigDir string
 }
 
@@ -33,10 +33,10 @@ const (
 
 func NewResourceManagerExecutor(db *gorm.DB, l *glog.Logger, hadoopConfigDir string) *ResourceManagerExecutor {
 	return &ResourceManagerExecutor{
-		db:          db,
-		idGenerator: idgenerator.New(constants.FileMangerIDPrefix),
-		logger:      l,
-		hadoopConfigDir:  hadoopConfigDir,
+		db:              db,
+		idGenerator:     idgenerator.New(constants.FileMangerIDPrefix),
+		logger:          l,
+		hadoopConfigDir: hadoopConfigDir,
 	}
 }
 
@@ -287,17 +287,7 @@ func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, req *reque
 		},
 	}
 	if req.ResourceName != "" && len(req.ResourceName) > 0 {
-		if len(req.ResourceName) == 0 ||
-			len(req.ResourceName) > 256 {
-			err = qerror.InvalidParams.Format("resource_name")
-			return
-		}
-		var reg *regexp.Regexp
-		reg, err = regexp.Compile(`[\\^?*|"<>:/\s]`)
-		if err != nil {
-			return
-		} else if len(reg.FindString(req.ResourceName)) > 0 {
-			err = qerror.InvalidParams.Format("resource_name")
+		if err = checkResourceName(req.ResourceName); err != nil {
 			return
 		}
 		exp = append(exp, clause.Eq{
@@ -334,14 +324,27 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 		ResourceId: resourceId,
 		SpaceId:    spaceId,
 	}
-	if resourceName != "" {
-		info.Name = resourceName
-	}
 	if description != "" {
 		info.Description = description
 	}
 	if resourceType > 0 {
 		info.Type = resourceType
+	}
+	if resourceName != "" {
+		if err = checkResourceName(resourceName); err != nil {
+			return nil, err
+		}
+		info.Name = resourceName
+		exp := []clause.Expression{
+			clause.Eq{Column: "name", Value: resourceName},
+			clause.Eq{Column: "space_id", Value: spaceId},
+			clause.Eq{Column: "type", Value: resourceType},
+			clause.Neq{Column: "status", Value: model.Resource_Deleted},
+		}
+		var id int
+		if rows := db.Table(resourceTableName).Select("resource_id").Clauses(clause.Where{Exprs: exp}).Take(&id).RowsAffected; rows > 0 {
+			return nil, qerror.ResourceAlreadyExists
+		}
 	}
 	if err = db.Table(resourceTableName).Updates(&info).Error; err != nil {
 		return nil, err
@@ -365,14 +368,21 @@ func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []st
 	for i := 0; i < len(ids); i++ {
 		eqExpr[i] = clause.Eq{Column: "resource_id", Value: ids[i]}
 	}
+	var expr clause.Expression
+	if len(eqExpr) == 1 {
+		expr = eqExpr[0]
+	} else {
+		expr = clause.Or(eqExpr...)
+	}
 
+	currentTime := time.Now().Unix()
 	err = ex.db.WithContext(ctx).Table(resourceTableName).Clauses(clause.Where{
 		Exprs: []clause.Expression{
 			clause.Eq{Column: "space_id", Value: spaceId},
 			clause.Neq{Column: "status", Value: model.Resource_Deleted},
-			clause.Or(eqExpr...),
+			expr,
 		},
-	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": time.Now().Unix()}).Error
+	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": currentTime, "deleted": currentTime}).Error
 	//if err = ex.db.WithContext(ctx).Table(resourceTableName).Where("id = ? AND space_id = ?", id, spaceId).Delete(&model.Resource{}).Error; err != nil {
 	//	return
 	//}
@@ -408,12 +418,19 @@ func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []
 	for i := 0; i < len(spaceIds); i++ {
 		eqExpr[i] = clause.Eq{Column: "space_id", Value: spaceIds[i]}
 	}
+	var expr clause.Expression
+	if len(eqExpr) == 1 {
+		expr = eqExpr[0]
+	} else {
+		expr = clause.Or(eqExpr...)
+	}
+	currentTime := time.Now().Unix()
 	err := ex.db.WithContext(ctx).Table(resourceTableName).Clauses(clause.Where{
 		Exprs: []clause.Expression{
 			clause.Neq{Column: "status", Value: model.Resource_Deleted},
-			clause.Or(eqExpr...),
+			expr,
 		},
-	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": time.Now().Unix()}).Error
+	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": currentTime, "deleted": currentTime}).Error
 	return &model.EmptyStruct{}, err
 }
 
@@ -425,4 +442,21 @@ func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, id string) 
 
 func getHdfsPath(spaceId, resourceId string) string {
 	return fileSplit + spaceId + fileSplit + resourceId + ".jar"
+}
+
+func checkResourceName(name string) (err error) {
+	if len(name) == 0 ||
+		len(name) > 256 {
+		err = qerror.InvalidParams.Format("resource_name")
+		return
+	}
+	var reg *regexp.Regexp
+	reg, err = regexp.Compile(`[\\^?*|"<>:/\s]`)
+	if err != nil {
+		return
+	} else if len(reg.FindString(name)) > 0 {
+		err = qerror.InvalidParams.Format("resource_name")
+		return
+	}
+	return
 }
