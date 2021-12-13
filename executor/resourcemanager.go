@@ -349,14 +349,10 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 			return nil, err
 		}
 		info.Name = resourceName
-		exp := []clause.Expression{
-			clause.Eq{Column: "name", Value: resourceName},
-			clause.Eq{Column: "space_id", Value: spaceId},
-			clause.Eq{Column: "type", Value: resourceType},
-			clause.Neq{Column: "status", Value: model.Resource_Deleted},
-		}
 		var id int
-		if rows := db.Table(resourceTableName).Select("resource_id").Clauses(clause.Where{Exprs: exp}).Take(&id).RowsAffected; rows > 0 {
+		if rows := db.Table(resourceTableName).Select("resource_id").Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("space_id = ? and type = ? and name = ? and status != ?",spaceId,resourceType,resourceName,model.Resource_Deleted).
+			Take(&id).RowsAffected; rows > 0 {
 			return nil, qerror.ResourceAlreadyExists
 		}
 	}
