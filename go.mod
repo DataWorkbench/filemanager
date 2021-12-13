@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/DataWorkbench/common v0.0.0-20211119040652-ec556faf070a
 	github.com/DataWorkbench/glog v0.0.0-20210809050640-4960fd6de6ab
-	github.com/DataWorkbench/gproto v0.0.0-20211210061948-ac58a34e88ec // indirect
+	github.com/DataWorkbench/gproto v0.0.0-20211213125712-a8b37285bc0f // indirect
 	github.com/DataWorkbench/loader v0.0.0-20210808061751-6e1ba7df5cdd
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/go-playground/validator/v10 v10.9.0

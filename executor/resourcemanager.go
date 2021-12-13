@@ -76,10 +76,18 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	res.Status = model.Resource_Enabled
 	res.CreateBy = recv.CreateBy
 
+	var x string
+	//TODO check if resource exists
+	if r := ex.db.Table(resourceTableName).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("space_id = ? AND type = ? AND name = ? AND status != ?", res.SpaceId, res.Type, res.Name, model.Resource_Deleted).
+		Take(&x).RowsAffected; r > 0 {
+			err = qerror.ResourceAlreadyExists
+			return
+	}
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
 	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
-	if client, err = NewHadoopClientFromConfFile(ex.hadoopConfigDir, "root");err!=nil{
+	if client, err = NewHadoopClientFromConfFile(ex.hadoopConfigDir, "root"); err != nil {
 		return
 	}
 	defer func() {
@@ -388,7 +396,7 @@ func (ex *ResourceManagerExecutor) DeleteResources(ctx context.Context, ids []st
 			clause.Neq{Column: "status", Value: model.Resource_Deleted},
 			expr,
 		},
-	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": currentTime, "deleted": currentTime}).Error
+	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": currentTime}).Error
 	//if err = ex.db.WithContext(ctx).Table(resourceTableName).Where("id = ? AND space_id = ?", id, spaceId).Delete(&model.Resource{}).Error; err != nil {
 	//	return
 	//}
@@ -436,7 +444,7 @@ func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []
 			clause.Neq{Column: "status", Value: model.Resource_Deleted},
 			expr,
 		},
-	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": currentTime, "deleted": currentTime}).Error
+	}).Updates(map[string]interface{}{"status": model.Resource_Deleted, "updated": currentTime}).Error
 	return &model.EmptyStruct{}, err
 }
 

@@ -13,11 +13,10 @@ CREATE TABLE `resource`
     `description`   VARCHAR(500),
     `created`       BIGINT(20) UNSIGNED NOT NULL,
     `updated`       BIGINT(20) UNSIGNED NOT NULL,
-    `deleted`       BIGINT(20) UNSIGNED DEFAULT 0 NOT NULL,
     `create_by`     VARCHAR(30) NOT NULL,
     `status`        INT(1) DEFAULT 1 comment '1 enabled 2 disabled 3 deleted',
     PRIMARY KEY (`resource_id`),
     CONSTRAINT resource_manager_chk_type check (type = 1 or type = 2 or type = 3),
     CONSTRAINT resource_manager_chk_status check (status = 1 or status = 2 or status = 3),
-    UNIQUE INDEX resource_manager_unique (`space_id`, `type`, `name`,`deleted`)
+    INDEX resource_manager_unique (`space_id`, `type`, `name`,`status`)
 );
