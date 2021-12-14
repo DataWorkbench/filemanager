@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/DataWorkbench/gproto/pkg/model"
@@ -81,8 +82,8 @@ func (ex *ResourceManagerExecutor) UploadFile(re respb.Resource_UploadFileServer
 	if r := ex.db.Table(resourceTableName).Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("space_id = ? AND type = ? AND name = ? AND status != ?", res.SpaceId, res.Type, res.Name, model.Resource_Deleted).
 		Take(&x).RowsAffected; r > 0 {
-			err = qerror.ResourceAlreadyExists
-			return
+		err = qerror.ResourceAlreadyExists
+		return
 	}
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
 	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
@@ -178,7 +179,7 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 	res.ResourceSize = recv.Size
 
 	hdfsFileDir := fileSplit + res.SpaceId + fileSplit
-	hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
+	tmpPath := getHdfsPath(res.SpaceId, strconv.FormatInt(time.Now().Unix(), 10))
 	//client, err = NewHadoopFromNameNodes(ex.hdfsServer, "root")
 	client, err = NewHadoopClientFromConfFile(ex.hadoopConfigDir, "root")
 	defer func() {
@@ -187,26 +188,26 @@ func (ex *ResourceManagerExecutor) ReUploadFile(re respb.Resource_ReUploadFileSe
 		}
 	}()
 
-	if err = client.remove(hdfsPath); err != nil {
-		return
-	}
-	if writer, err = client.createFileWriter(hdfsPath); err != nil {
+	if writer, err = client.createFileWriter(tmpPath); err != nil {
 		if _, ok := err.(*os.PathError); ok {
 			if err = client.mkdirP(hdfsFileDir, 0777); err != nil {
 				return
 			}
-			if writer, err = client.createFileWriter(hdfsPath); err != nil {
+			if writer, err = client.createFileWriter(tmpPath); err != nil {
 				return
 			}
 		} else {
 			return
 		}
 	}
+
 	defer func() {
 		if err == nil {
 			_ = writer.Close()
+			hdfsPath := getHdfsPath(res.SpaceId, res.ResourceId)
+			err = client.rename(tmpPath, hdfsPath)
 		} else {
-			_ = client.remove(hdfsPath)
+			_ = client.remove(tmpPath)
 		}
 	}()
 
@@ -351,7 +352,7 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 		info.Name = resourceName
 		var id int
 		if rows := db.Table(resourceTableName).Select("resource_id").Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("space_id = ? and type = ? and name = ? and status != ?",spaceId,resourceType,resourceName,model.Resource_Deleted).
+			Where("space_id = ? and type = ? and name = ? and status != ?", spaceId, resourceType, resourceName, model.Resource_Deleted).
 			Take(&id).RowsAffected; rows > 0 {
 			return nil, qerror.ResourceAlreadyExists
 		}

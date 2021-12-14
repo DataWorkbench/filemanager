@@ -95,3 +95,7 @@ func (hc *HadoopClient) remove(path string) error {
 func (hc *HadoopClient) close() error {
 	return hc.client.Close()
 }
+
+func (hc *HadoopClient) rename(oldName string, newName string) error {
+	return hc.client.Rename(oldName, newName)
+}
