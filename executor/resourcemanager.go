@@ -350,10 +350,10 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 			return nil, err
 		}
 		info.Name = resourceName
-		var id int
+		var id string
 		if rows := db.Table(resourceTableName).Select("resource_id").Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("space_id = ? and type = ? and name = ? and status != ?", spaceId, resourceType, resourceName, model.Resource_Deleted).
-			Take(&id).RowsAffected; rows > 0 {
+			Take(&id).RowsAffected; rows > 0 && id != resourceId {
 			return nil, qerror.ResourceAlreadyExists
 		}
 	}
