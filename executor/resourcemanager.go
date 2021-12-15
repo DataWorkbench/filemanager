@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm/clause"
 	"io"
 	"os"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -302,9 +301,6 @@ func (ex *ResourceManagerExecutor) ListResources(ctx context.Context, req *reque
 		},
 	}
 	if req.ResourceName != "" && len(req.ResourceName) > 0 {
-		if err = checkResourceName(req.ResourceName); err != nil {
-			return
-		}
 		exp = append(exp, clause.Eq{
 			Column: "name",
 			Value:  req.ResourceName,
@@ -346,9 +342,6 @@ func (ex *ResourceManagerExecutor) UpdateResource(ctx context.Context, resourceI
 		info.Type = resourceType
 	}
 	if resourceName != "" {
-		if err = checkResourceName(resourceName); err != nil {
-			return nil, err
-		}
 		info.Name = resourceName
 		var id string
 		if rows := db.Table(resourceTableName).Select("resource_id").Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -455,19 +448,19 @@ func getHdfsPath(spaceId, resourceId string) string {
 	return fileSplit + spaceId + fileSplit + resourceId + ".jar"
 }
 
-func checkResourceName(name string) (err error) {
-	if len(name) == 0 ||
-		len(name) > 256 {
-		err = qerror.InvalidParams.Format("resource_name")
-		return
-	}
-	var reg *regexp.Regexp
-	reg, err = regexp.Compile(`[\\^?*|"<>:/\s]`)
-	if err != nil {
-		return
-	} else if len(reg.FindString(name)) > 0 {
-		err = qerror.InvalidParams.Format("resource_name")
-		return
-	}
-	return
-}
+//func checkResourceName(name string) (err error) {
+//	if len(name) == 0 ||
+//		len(name) > 256 {
+//		err = qerror.InvalidParams.Format("resource_name")
+//		return
+//	}
+//	var reg *regexp.Regexp
+//	reg, err = regexp.Compile(`[\\^?*|"<>:/\s]`)
+//	if err != nil {
+//		return
+//	} else if len(reg.FindString(name)) > 0 {
+//		err = qerror.InvalidParams.Format("resource_name")
+//		return
+//	}
+//	return
+//}
