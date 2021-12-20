@@ -61,6 +61,8 @@ github.com/DataWorkbench/gproto v0.0.0-20211215061522-740a6754245e h1:GPD1mJps5p
 github.com/DataWorkbench/gproto v0.0.0-20211215061522-740a6754245e/go.mod h1:bdju+jQfnsfc2IGHllEcCR9Nm57FjIqu8I2IANyY49Q=
 github.com/DataWorkbench/gproto v0.0.0-20211215065846-a13660ffb662 h1:MxtFYLoGHrpqvsqtMe0SSrlaHPol5okVzK9WUH7uoCU=
 github.com/DataWorkbench/gproto v0.0.0-20211215065846-a13660ffb662/go.mod h1:bdju+jQfnsfc2IGHllEcCR9Nm57FjIqu8I2IANyY49Q=
+github.com/DataWorkbench/gproto v0.0.0-20211220025504-71b5a4238ddb h1:wKlHq0V3XutFXjDX3mMAAO8Jc826lMFbVzQ6yW1U6HQ=
+github.com/DataWorkbench/gproto v0.0.0-20211220025504-71b5a4238ddb/go.mod h1:bdju+jQfnsfc2IGHllEcCR9Nm57FjIqu8I2IANyY49Q=
 github.com/DataWorkbench/loader v0.0.0-20210808061751-6e1ba7df5cdd h1:JjlZ3lHQT7XQC1PjeWDIKozvW40E+L4WQqS/EKewBMg=
 github.com/DataWorkbench/loader v0.0.0-20210808061751-6e1ba7df5cdd/go.mod h1:K2ou8EU8Cto30za+mKbfCXXc8C6BRpyCjg+4E2CRwV4=
 github.com/HdrHistogram/hdrhistogram-go v1.0.1 h1:GX8GAYDuhlFQnI2fRDHQhTlkHMz8bEn0jTI6LJU0mpw=
