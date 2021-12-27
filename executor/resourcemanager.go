@@ -10,6 +10,7 @@ import (
 	"github.com/DataWorkbench/gproto/pkg/respb"
 	"github.com/DataWorkbench/gproto/pkg/response"
 	"github.com/colinmarc/hdfs/v2"
+	"github.com/pkg/errors"
 	"gorm.io/gorm/clause"
 	"io"
 	"os"
@@ -441,6 +442,12 @@ func (ex *ResourceManagerExecutor) DeleteSpaces(ctx context.Context, spaceIds []
 func (ex *ResourceManagerExecutor) DescribeFile(ctx context.Context, id string) (rsp *model.Resource, err error) {
 	db := ex.db.WithContext(ctx)
 	err = db.Table(resourceTableName).Where("resource_id = ?", id).First(&rsp).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = qerror.ResourceNotExists.Format(id)
+		}
+		return
+	}
 	return
 }
 
