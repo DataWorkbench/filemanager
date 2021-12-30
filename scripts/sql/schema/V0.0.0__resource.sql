@@ -1,7 +1,4 @@
-CREATE
-DATABASE IF NOT EXISTS data_workbench;
-USE
-data_workbench;
+
 CREATE TABLE `resource`
 (
     `resource_id`   VARCHAR(20) NOT NULL,
