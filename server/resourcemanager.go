@@ -36,8 +36,8 @@ func (rm *ResourceManagerServer) DownloadFile(req *request.DownloadFile, resp re
 	return rm.executor.DownloadFile(req.ResourceId, resp)
 }
 
-func (rm *ResourceManagerServer) DescribeFile(ctx context.Context,req *request.DescribeFile) (*model.Resource, error) {
-	return rm.executor.DescribeFile(ctx,req.ResourceId)
+func (rm *ResourceManagerServer) DescribeFile(ctx context.Context, req *request.DescribeFile) (*model.Resource, error) {
+	return rm.executor.DescribeFile(ctx, req.ResourceId)
 }
 
 func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request.ListResources) (*response.ListResources, error) {
@@ -55,7 +55,7 @@ func (rm *ResourceManagerServer) ListResources(ctx context.Context, req *request
 }
 
 func (rm *ResourceManagerServer) UpdateResource(ctx context.Context, req *request.UpdateResource) (*model.EmptyStruct, error) {
-	return rm.executor.UpdateResource(ctx, req.ResourceId, req.SpaceId, req.ResourceName,req.Description,req.ResourceType)
+	return rm.executor.UpdateResource(ctx, req.ResourceId, req.SpaceId, req.ResourceName, req.Description, req.ResourceType)
 }
 
 func (rm *ResourceManagerServer) DeleteResources(ctx context.Context, req *request.DeleteResources) (*model.EmptyStruct, error) {
