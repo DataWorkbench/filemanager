@@ -2,10 +2,11 @@ package executor
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/colinmarc/hdfs/v2"
 	"github.com/colinmarc/hdfs/v2/hadoopconf"
-	"os"
 )
 
 type HadoopClient struct {

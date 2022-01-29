@@ -12,15 +12,10 @@ import (
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/common/utils/buildinfo"
-
-	"github.com/DataWorkbench/gproto/pkg/respb"
-
 	"github.com/DataWorkbench/glog"
-
+	"github.com/DataWorkbench/gproto/pkg/service/pbsvcresource"
 	"github.com/DataWorkbench/resourcemanager/config"
 	"github.com/DataWorkbench/resourcemanager/executor"
-
-	"google.golang.org/grpc"
 	"gorm.io/gorm"
 )
 
@@ -62,9 +57,9 @@ func Start() (err error) {
 	if err != nil {
 		return
 	}
-	rpcServer.Register(func(s *grpc.Server) {
-		respb.RegisterResourceServer(s, NewResourceManagerServer(executor.NewResourceManagerExecutor(db, lp, cfg.HadoopConfDir)))
-	})
+
+	rpcServer.RegisterService(&pbsvcresource.ResourceManage_ServiceDesc,
+		NewResourceManagerServer(executor.NewResourceManagerExecutor(db, lp, cfg.HadoopConfDir)))
 
 	// handle signal
 	sigGroup := []os.Signal{syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM}

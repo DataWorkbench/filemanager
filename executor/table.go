@@ -1,9 +1,11 @@
 package executor
 
-import "github.com/DataWorkbench/gproto/pkg/model"
+import (
+	"github.com/DataWorkbench/gproto/pkg/types/pbmodel"
+)
 
 const (
 	resourceTableName = "resource"
 )
 
-type ResourceModel = model.Resource
+type ResourceModel = pbmodel.Resource
