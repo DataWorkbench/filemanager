@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 
-	"github.com/DataWorkbench/gproto/pkg/service/pbsvcresource"
-	"github.com/DataWorkbench/gproto/pkg/types/pbmodel"
-	"github.com/DataWorkbench/gproto/pkg/types/pbrequest"
-	"github.com/DataWorkbench/gproto/pkg/types/pbresponse"
+	"github.com/DataWorkbench/gproto/xgo/service/pbsvcresource"
+	"github.com/DataWorkbench/gproto/xgo/types/pbmodel"
+	"github.com/DataWorkbench/gproto/xgo/types/pbrequest"
+	"github.com/DataWorkbench/gproto/xgo/types/pbresponse"
 
 	"github.com/DataWorkbench/resourcemanager/executor"
 )

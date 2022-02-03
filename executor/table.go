@@ -1,7 +1,7 @@
 package executor
 
 import (
-	"github.com/DataWorkbench/gproto/pkg/types/pbmodel"
+	"github.com/DataWorkbench/gproto/xgo/types/pbmodel"
 )
 
 const (

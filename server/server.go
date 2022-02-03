@@ -13,7 +13,7 @@ import (
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/common/utils/buildinfo"
 	"github.com/DataWorkbench/glog"
-	"github.com/DataWorkbench/gproto/pkg/service/pbsvcresource"
+	"github.com/DataWorkbench/gproto/xgo/service/pbsvcresource"
 	"github.com/DataWorkbench/resourcemanager/config"
 	"github.com/DataWorkbench/resourcemanager/executor"
 	"gorm.io/gorm"
