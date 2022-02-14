@@ -3,20 +3,21 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/DataWorkbench/common/gormwrap"
 	"github.com/DataWorkbench/common/grpcwrap"
+	"github.com/DataWorkbench/common/gtrace"
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/common/utils/buildinfo"
 	"github.com/DataWorkbench/glog"
 	"github.com/DataWorkbench/gproto/xgo/service/pbsvcresource"
 	"github.com/DataWorkbench/resourcemanager/config"
-	"github.com/DataWorkbench/resourcemanager/executor"
-	"gorm.io/gorm"
+	"github.com/DataWorkbench/resourcemanager/controller"
+	"github.com/DataWorkbench/resourcemanager/options"
 )
 
 // Start for start the http server
@@ -36,21 +37,38 @@ func Start() (err error) {
 	ctx := glog.WithContext(context.Background(), lp)
 
 	var (
-		db           *gorm.DB
+		//db           *gorm.DB
 		rpcServer    *grpcwrap.Server
 		metricServer *metrics.Server
+		tracer       gtrace.Tracer
+		tracerCloser io.Closer
 	)
 
 	defer func() {
 		rpcServer.GracefulStop()
+
+		_ = options.Close()
 		_ = metricServer.Shutdown(ctx)
+		if tracerCloser != nil {
+			_ = tracerCloser.Close()
+		}
 		_ = lp.Close()
 	}()
 
-	// init gorm.DB
-	db, err = gormwrap.NewMySQLConn(ctx, cfg.MySQL)
+	tracer, tracerCloser, err = gtrace.New(cfg.Tracer)
 	if err != nil {
 		return
+	}
+	ctx = gtrace.ContextWithTracer(ctx, tracer)
+
+	if err = options.Init(ctx, cfg); err != nil {
+		return
+	}
+
+	// init prometheus server
+	metricServer, err = metrics.NewServer(ctx, cfg.MetricsServer)
+	if err != nil {
+		return err
 	}
 
 	rpcServer, err = grpcwrap.NewServer(ctx, cfg.GRPCServer)
@@ -58,8 +76,7 @@ func Start() (err error) {
 		return
 	}
 
-	rpcServer.RegisterService(&pbsvcresource.ResourceManage_ServiceDesc,
-		NewResourceManagerServer(executor.NewResourceManagerExecutor(db, lp, cfg.HadoopConfDir)))
+	rpcServer.RegisterService(&pbsvcresource.ResourceData_ServiceDesc, &controller.ResourceData{})
 
 	// handle signal
 	sigGroup := []os.Signal{syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM}
@@ -70,20 +87,13 @@ func Start() (err error) {
 
 	// run grpc server
 	go func() {
-		err = rpcServer.ListenAndServe()
+		_ = rpcServer.ListenAndServe()
 		blockChan <- struct{}{}
 	}()
 
-	// init prometheus server
-	metricServer, err = metrics.NewServer(ctx, cfg.MetricsServer)
-	if err != nil {
-		return err
-	}
-
 	go func() {
-		if err = metricServer.ListenAndServe(); err != nil {
-			return
-		}
+		// Ignore metrics server error.
+		_ = metricServer.ListenAndServe()
 	}()
 
 	go func() {

@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/DataWorkbench/common/gormwrap"
 	"github.com/DataWorkbench/common/grpcwrap"
+	"github.com/DataWorkbench/common/gtrace"
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/loader"
 
@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The config file path used by Load config
+// FilePath The config file path used by Load config
 var FilePath string
 
 const (
@@ -25,10 +25,12 @@ const (
 // Config is the configuration settings for spacemanager
 type Config struct {
 	LogLevel      int8                   `json:"log_level"      yaml:"log_level"      env:"LOG_LEVEL,default=1" validate:"gte=1,lte=5"`
-	HadoopConfDir string                 `json:"hadoop_conf_dir"    yaml:"hadoop_conf_dir"    env:"HADOOP_CONF_DIR"         validate:"required"`
 	GRPCServer    *grpcwrap.ServerConfig `json:"grpc_server"    yaml:"grpc_server"    env:"GRPC_SERVER"         validate:"required"`
+	GRPCLog       *grpcwrap.LogConfig    `json:"grpc_log"       yaml:"grpc_log"       env:"GRPC_LOG"            validate:"required"`
 	MetricsServer *metrics.Config        `json:"metrics_server" yaml:"metrics_server" env:"METRICS_SERVER"      validate:"required"`
-	MySQL         *gormwrap.MySQLConfig  `json:"mysql"          yaml:"mysql"          env:"MYSQL"               validate:"required"`
+	Tracer        *gtrace.Config         `json:"tracer"         yaml:"tracer"         env:"TRACER"              validate:"required"`
+
+	HadoopConfDir string `json:"hadoop_conf_dir"    yaml:"hadoop_conf_dir"    env:"HADOOP_CONF_DIR"         validate:"required"`
 }
 
 func loadFromFile(cfg *Config) (err error) {
@@ -51,7 +53,7 @@ func loadFromFile(cfg *Config) (err error) {
 	return
 }
 
-// LoadConfig load all configuration from specified file
+// Load load all configuration from specified file
 // Must be set `FilePath` before called
 func Load() (cfg *Config, err error) {
 	cfg = &Config{}

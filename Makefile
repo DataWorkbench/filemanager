@@ -12,6 +12,7 @@ help:
 	@echo "  test     to run test case"
 	@echo "  compile  compile binary program with debug mode"
 	@echo "  release  compile binary program with release mode"
+	@echo "  run      run server for test"
 	@exit 0
 
 COMPILE = _compile() {    \
@@ -50,6 +51,14 @@ test:
 .PHONY: compile
 compile:
 	@$(COMPILE); _compile
+
+.PHONY: release
+release:
+	@$(COMPILE); export BUILD_MODE="release"; _compile
+
+.PHONY: run
+run:
+	@[[ ${VERBOSE} = "yes" ]] && bash -x ./scripts/run.sh || bash ./scripts/run.sh
 
 
 .DEFAULT_GOAL = help

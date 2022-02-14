@@ -3,8 +3,6 @@
 # 1=>"debug", 2=>"info", 3=>"warn", 4=>"error", 5=>"fatal"
 log_level: 1
 
-hadoop_conf_dir: "config"
-
 grpc_server:
   address: "127.0.0.1:9111"  #required
   log_level: 2 #  1 => info, 2 => waring, 3 => error, 4 => fatal
@@ -15,13 +13,20 @@ metircs_server:
   address: "127.0.0.1:9121"  # required when enabled is true
   url_path: "/metrics"
 
-mysql:
-  hosts: "127.0.0.1:3306"  # required
-  users: "root"  # required
-  password: "password"  # required
-  database: "dataomnis"  # required
-  max_idle_conn: 16
-  max_open_conn: 128
-  conn_max_lifetime: 10m
-  log_level: 4 # 1 => Silent, 2 => Error, 3 => Warn, 4 => Info
-  slow_threshold: 2s
+tracer:
+  service_name: "resourcemanager"
+  local_agent: "127.0.0.1:6831"
+
+# HDFS config.
+hadoop_conf_dir: "config"
+
+#mysql:
+#  hosts: "127.0.0.1:3306"  # required
+#  users: "root"  # required
+#  password: "root"  # required
+#  database: "dataomnis"  # required
+#  max_idle_conn: 16
+#  max_open_conn: 128
+#  conn_max_lifetime: 10m
+#  log_level: 4 # 1 => Silent, 2 => Error, 3 => Warn, 4 => Info
+#  slow_threshold: 2s
