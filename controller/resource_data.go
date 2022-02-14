@@ -81,7 +81,7 @@ func (x *ResourceData) WriteFileData(req pbsvcresource.ResourceData_WriteFileDat
 	}
 
 	filePath := x.getFilePath(recv.SpaceId, recv.ResourceId, recv.Version)
-	writer, err = client.CreateFileWriter(ctx, filePath)
+	writer, err = client.CreateFileForWrite(ctx, filePath)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (x *ResourceData) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcreso
 	ctx := reply.Context()
 
 	filePath := x.getFilePath(req.SpaceId, req.ResourceId, req.Version)
-	if reader, err = client.OpenFileReader(ctx, filePath); err != nil {
+	if reader, err = client.OpenFileForRead(ctx, filePath); err != nil {
 		return err
 	}
 	defer func() {

@@ -89,7 +89,7 @@ func (hc *HdfsClient) Close() error {
 	return hc.client.Close()
 }
 
-func (hc *HdfsClient) CreateFileWriter(ctx context.Context, path string) (*hdfs.FileWriter, error) {
+func (hc *HdfsClient) CreateFileForWrite(ctx context.Context, path string) (*hdfs.FileWriter, error) {
 	lg := glog.FromContext(ctx)
 	lg.Debug().Msg("hdfs: create new file for write").String("path", path).Fire()
 	writer, err := hc.client.Create(path)
@@ -100,7 +100,7 @@ func (hc *HdfsClient) CreateFileWriter(ctx context.Context, path string) (*hdfs.
 	return writer, nil
 }
 
-func (hc *HdfsClient) OpenFileReader(ctx context.Context, path string) (*hdfs.FileReader, error) {
+func (hc *HdfsClient) OpenFileForRead(ctx context.Context, path string) (*hdfs.FileReader, error) {
 	lg := glog.FromContext(ctx)
 	lg.Debug().Msg("hdfs: open file for read").String("path", path).Fire()
 	reader, err := hc.client.Open(path)
@@ -116,7 +116,7 @@ func (hc *HdfsClient) Stat(ctx context.Context, path string) (os.FileInfo, error
 	lg.Debug().Msg("hdfs: stat file").String("path", path).Fire()
 	fileInfo, err := hc.client.Stat(path)
 	if err != nil {
-		lg.Error().Msg("hdfs: stat file failed").Error("error", err).Fire()
+		lg.Warn().Msg("hdfs: stat file failed").Error("error", err).Fire()
 		return nil, err
 	}
 	return fileInfo, nil
