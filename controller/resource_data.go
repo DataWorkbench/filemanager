@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"os"
 
+	"github.com/DataWorkbench/common/constants"
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/DataWorkbench/glog"
 	"github.com/DataWorkbench/gproto/xgo/service/pbsvcresource"
@@ -20,18 +20,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const pathPrefix = "/dataomnis/resource"
-
 type ResourceData struct {
 	pbsvcresource.UnimplementedResourceDataServer
 }
 
 func (x *ResourceData) getRootDir(spaceId string) string {
-	return fmt.Sprintf("%s/%s", pathPrefix, spaceId)
+	return constants.GenResourceFileRootDir(spaceId)
 }
 
 func (x *ResourceData) getFilePath(spaceId string, resourceId string, version string) string {
-	return fmt.Sprintf("%s/%s.%s", x.getRootDir(spaceId), resourceId, version)
+	return constants.GenResourceFilePath(spaceId, resourceId, version)
 }
 
 func (x *ResourceData) ensureRootDirExists(ctx context.Context, spaceId string) (err error) {

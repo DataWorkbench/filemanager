@@ -3,7 +3,7 @@ module github.com/DataWorkbench/resourcemanager
 go 1.16
 
 require (
-	github.com/DataWorkbench/common v0.0.0-20220213160856-9136e7e80fab
+	github.com/DataWorkbench/common v0.0.0-20220214090320-7fd23e4bb4a3
 	github.com/DataWorkbench/glog v0.0.0-20210809050640-4960fd6de6ab
 	github.com/DataWorkbench/gproto v0.0.0-20220214071145-69b56f53dd40
 	github.com/DataWorkbench/loader v0.0.0-20210808061751-6e1ba7df5cdd
