@@ -14,7 +14,7 @@ import (
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/common/utils/buildinfo"
 	"github.com/DataWorkbench/glog"
-	"github.com/DataWorkbench/gproto/xgo/service/pbsvcresource"
+	"github.com/DataWorkbench/gproto/xgo/service/pbsvcstoreio"
 	"github.com/DataWorkbench/resourcemanager/config"
 	"github.com/DataWorkbench/resourcemanager/controller"
 	"github.com/DataWorkbench/resourcemanager/options"
@@ -76,7 +76,7 @@ func Start() (err error) {
 		return
 	}
 
-	rpcServer.RegisterService(&pbsvcresource.ResourceData_ServiceDesc, &controller.ResourceData{})
+	rpcServer.RegisterService(&pbsvcstoreio.StoreIO_ServiceDesc, &controller.StoreIo{})
 
 	// handle signal
 	sigGroup := []os.Signal{syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM}

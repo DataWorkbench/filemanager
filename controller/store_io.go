@@ -7,10 +7,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/DataWorkbench/common/constants"
+	"github.com/DataWorkbench/common/lib/storeio"
 	"github.com/DataWorkbench/common/qerror"
 	"github.com/DataWorkbench/glog"
-	"github.com/DataWorkbench/gproto/xgo/service/pbsvcresource"
+	"github.com/DataWorkbench/gproto/xgo/service/pbsvcstoreio"
 	"github.com/DataWorkbench/gproto/xgo/types/pbmodel"
 	"github.com/DataWorkbench/gproto/xgo/types/pbrequest"
 	"github.com/DataWorkbench/gproto/xgo/types/pbresponse"
@@ -20,19 +20,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type ResourceData struct {
-	pbsvcresource.UnimplementedResourceDataServer
+type StoreIo struct {
+	pbsvcstoreio.UnimplementedStoreIOServer
 }
 
-func (x *ResourceData) getRootDir(spaceId string) string {
-	return constants.GenResourceFileRootDir(spaceId)
+func (x *StoreIo) getRootDir(spaceId string) string {
+	return storeio.GenerateFileRootDir(spaceId)
 }
 
-func (x *ResourceData) getFilePath(spaceId string, resourceId string, version string) string {
-	return constants.GenResourceFilePath(spaceId, resourceId, version)
+func (x *StoreIo) getFilePath(spaceId string, resourceId string, version string) string {
+	return storeio.GenerateFilePath(spaceId, resourceId, version)
 }
 
-func (x *ResourceData) ensureRootDirExists(ctx context.Context, spaceId string) (err error) {
+func (x *StoreIo) ensureRootDirExists(ctx context.Context, spaceId string) (err error) {
 	rootDir := x.getRootDir(spaceId)
 	client := options.HDFSClient
 
@@ -50,7 +50,7 @@ func (x *ResourceData) ensureRootDirExists(ctx context.Context, spaceId string) 
 	return
 }
 
-func (x *ResourceData) WriteFileData(req pbsvcresource.ResourceData_WriteFileDataServer) (err error) {
+func (x *StoreIo) WriteFileData(req pbsvcstoreio.StoreIO_WriteFileDataServer) (err error) {
 	var (
 		writer *hdfs.FileWriter
 		recv   *pbrequest.WriteFileData
@@ -80,7 +80,7 @@ func (x *ResourceData) WriteFileData(req pbsvcresource.ResourceData_WriteFileDat
 		return err
 	}
 
-	filePath := x.getFilePath(recv.SpaceId, recv.ResourceId, recv.Version)
+	filePath := x.getFilePath(recv.SpaceId, recv.FileId, recv.Version)
 	writer, err = client.CreateFileForWrite(ctx, filePath)
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (x *ResourceData) WriteFileData(req pbsvcresource.ResourceData_WriteFileDat
 		recv, err = req.Recv()
 		if err == io.EOF {
 			if receiveSize != resourceSize {
-				lg.Warn().Msg("file message lose").String("file id", recv.ResourceId).Fire()
+				lg.Warn().Msg("file message lose").String("file id", recv.FileId).Fire()
 				return qerror.Internal
 			}
 			err = nil
@@ -127,7 +127,7 @@ func (x *ResourceData) WriteFileData(req pbsvcresource.ResourceData_WriteFileDat
 		receiveSize += int64(written)
 	}
 }
-func (x *ResourceData) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcresource.ResourceData_ReadFileDataServer) (err error) {
+func (x *StoreIo) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcstoreio.StoreIO_ReadFileDataServer) (err error) {
 	var (
 		reader *hdfs.FileReader
 	)
@@ -135,7 +135,7 @@ func (x *ResourceData) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcreso
 	client := options.HDFSClient
 	ctx := reply.Context()
 
-	filePath := x.getFilePath(req.SpaceId, req.ResourceId, req.Version)
+	filePath := x.getFilePath(req.SpaceId, req.FileId, req.Version)
 	if reader, err = client.OpenFileForRead(ctx, filePath); err != nil {
 		return err
 	}
@@ -162,18 +162,18 @@ func (x *ResourceData) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcreso
 
 	return
 }
-func (x *ResourceData) DeleteFileData(ctx context.Context, req *pbrequest.DeleteFileData) (*pbmodel.EmptyStruct, error) {
+func (x *StoreIo) DeleteFileData(ctx context.Context, req *pbrequest.DeleteFileData) (*pbmodel.EmptyStruct, error) {
 	client := options.HDFSClient
-	filePath := x.getFilePath(req.SpaceId, req.ResourceId, req.Version)
+	filePath := x.getFilePath(req.SpaceId, req.FileId, req.Version)
 	err := client.Remove(ctx, filePath)
 	if err != nil {
 		return nil, err
 	}
 	return options.EmptyRPCReply, nil
 }
-func (x *ResourceData) DeleteFileDataByFileIds(ctx context.Context, req *pbrequest.DeleteFileDataByFileIds) (*pbmodel.EmptyStruct, error) {
+func (x *StoreIo) DeleteFileDataByFileIds(ctx context.Context, req *pbrequest.DeleteFileDataByFileIds) (*pbmodel.EmptyStruct, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteFileDataByFileIds not implemented")
 }
-func (x *ResourceData) DeleteFileDataBySpaceIds(ctx context.Context, req *pbrequest.DeleteFileDataBySpaceIds) (*pbmodel.EmptyStruct, error) {
+func (x *StoreIo) DeleteFileDataBySpaceIds(ctx context.Context, req *pbrequest.DeleteFileDataBySpaceIds) (*pbmodel.EmptyStruct, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteFileDataBySpaceIds not implemented")
 }
