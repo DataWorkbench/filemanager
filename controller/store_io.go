@@ -2,10 +2,7 @@ package controller
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"io"
-	"os"
 
 	"github.com/DataWorkbench/common/lib/storeio"
 	"github.com/DataWorkbench/common/qerror"
@@ -15,48 +12,73 @@ import (
 	"github.com/DataWorkbench/gproto/xgo/types/pbrequest"
 	"github.com/DataWorkbench/gproto/xgo/types/pbresponse"
 	"github.com/DataWorkbench/resourcemanager/options"
-	"github.com/colinmarc/hdfs/v2"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type StoreIo struct {
 	pbsvcstoreio.UnimplementedStoreIOServer
 }
 
-func (x *StoreIo) getRootDir(spaceId string) string {
-	return storeio.GenerateFileRootDir(spaceId)
+func (x *StoreIo) generateWorkspaceDir(spaceId string) string {
+	return storeio.GenerateWorkspaceDir(spaceId)
 }
 
-func (x *StoreIo) getFilePath(spaceId string, resourceId string, version string) string {
-	return storeio.GenerateFilePath(spaceId, resourceId, version)
+func (x *StoreIo) generateResourceFileDir(spaceId, fileId string) string {
+	return storeio.GenerateResourceFileDir(spaceId, fileId)
 }
 
-func (x *StoreIo) ensureRootDirExists(ctx context.Context, spaceId string) (err error) {
-	rootDir := x.getRootDir(spaceId)
-	client := options.HDFSClient
+func (x *StoreIo) generateResourceFilePath(spaceId, fileId, version string) string {
+	return storeio.GenerateResourceFilePath(spaceId, fileId, version)
+}
 
-	_, err = client.Stat(ctx, rootDir)
-	if err == nil {
-		return
-	}
-	_, ok := err.(*os.PathError)
-	if ok {
-		err = client.MkdirAll(ctx, rootDir, 0777)
-	}
-	if err != nil {
+func (x *StoreIo) ensureRootDirExists(ctx context.Context, spaceId, fileId string) (err error) {
+	rootDir := x.generateResourceFileDir(spaceId, fileId)
+	if err = options.FiloIO.MkdirAll(ctx, rootDir, 0777); err != nil {
 		return
 	}
 	return
 }
 
-func (x *StoreIo) WriteFileData(req pbsvcstoreio.StoreIO_WriteFileDataServer) (err error) {
+func (x *StoreIo) receiveAndWrite(req pbsvcstoreio.StoreIO_WriteFileDataServer, writer io.WriteCloser, fileSize int64) (err error) {
 	var (
-		writer *hdfs.FileWriter
-		recv   *pbrequest.WriteFileData
+		recv        *pbrequest.WriteFileData
+		receiveSize int64
+		written     int
 	)
 
-	client := options.HDFSClient
+	ctx := req.Context()
+	lg := glog.FromContext(ctx)
+
+	for {
+		recv, err = req.Recv()
+		if err == io.EOF {
+			if receiveSize != fileSize {
+				lg.Warn().Msg("file data lose").Int64("fileSize", fileSize).Int64("receiveSize", receiveSize).Fire()
+				return qerror.Internal
+			}
+			err = nil
+			return
+		}
+		if err != nil {
+			lg.Error().Msg("receive data from stream failed").Error("error", err).Fire()
+			return
+		}
+
+		written, err = writer.Write(recv.Data)
+		if err != nil {
+			lg.Warn().Msg("write data to writer failed").Error("error", err).Fire()
+			return
+		}
+		// count total size, provided the file size right.
+		receiveSize += int64(written)
+	}
+}
+
+func (x *StoreIo) WriteFileData(req pbsvcstoreio.StoreIO_WriteFileDataServer) (err error) {
+	var (
+		recv *pbrequest.WriteFileData
+		eTag string
+	)
+
 	ctx := req.Context()
 	lg := glog.FromContext(ctx)
 
@@ -64,7 +86,6 @@ func (x *StoreIo) WriteFileData(req pbsvcstoreio.StoreIO_WriteFileDataServer) (e
 	if recv, err = req.Recv(); err != nil {
 		return err
 	}
-
 	// For stream API. not invoker `Validate` in interceptor.
 	if err = recv.Validate(); err != nil {
 		return
@@ -74,69 +95,57 @@ func (x *StoreIo) WriteFileData(req pbsvcstoreio.StoreIO_WriteFileDataServer) (e
 		lg.Error().Msg("cannot sent data in first stream").Fire()
 		return qerror.Internal
 	}
-	resourceSize := recv.Size
 
-	if err = x.ensureRootDirExists(ctx, recv.SpaceId); err != nil {
+	if err = x.ensureRootDirExists(ctx, recv.SpaceId, recv.FileId); err != nil {
 		return err
 	}
 
-	filePath := x.getFilePath(recv.SpaceId, recv.FileId, recv.Version)
-	writer, err = client.CreateFileForWrite(ctx, filePath)
-	if err != nil {
-		return err
-	}
+	fileSize := recv.Size
+	filePath := x.generateResourceFilePath(recv.SpaceId, recv.FileId, recv.Version)
+
+	reader, writer := io.Pipe()
+
 	defer func() {
-		_ = writer.Close()
-
 		if err != nil {
-			_ = client.Remove(ctx, filePath)
+			lg.Error().Msg("write data to storage failed").Error("error", err).Fire()
+			_ = options.FiloIO.Remove(ctx, filePath)
 		}
+		_ = writer.Close()
+		_ = reader.Close()
 	}()
 
-	h := md5.New()
+	var writeError error
+	done := make(chan struct{})
 
-	var receiveSize int64
-	var written int
+	go func() {
+		lg.Debug().Msg("start to write data to storage").Int64("size", fileSize).Fire()
+		writeError = x.receiveAndWrite(req, writer, fileSize)
+		_ = writer.Close()
+		close(done)
+	}()
 
-	for {
-		recv, err = req.Recv()
-		if err == io.EOF {
-			if receiveSize != resourceSize {
-				lg.Warn().Msg("file message lose").String("file id", recv.FileId).Fire()
-				return qerror.Internal
-			}
-			err = nil
-			b := h.Sum(nil)
-			md5Hex := make([]byte, hex.EncodedLen(len(b)))
-			hex.Encode(md5Hex, b)
-			eTag := string(md5Hex)
-			return req.SendAndClose(&pbresponse.WriteFileData{Etag: eTag})
-		}
-		if err != nil {
-			lg.Error().Msg("receive data failed").Error("error", err).Fire()
-			return err
-		}
-		// Update md5 sum.
-		h.Write(recv.Data)
-		written, err = writer.Write(recv.Data)
-		if err != nil {
-			lg.Warn().Msg("write data failed").Error("error", err).Fire()
-			return err
-		}
-		// count total size,provided the file size right.
-		receiveSize += int64(written)
+	if eTag, err = options.FiloIO.CreateAndWrite(ctx, filePath, reader); err != nil {
+		return
 	}
+
+	<-done
+	if writeError != nil {
+		err = writeError
+		return
+	}
+
+	lg.Debug().Msg("write data to storage end").String("eTag", eTag).Fire()
+	_ = req.SendAndClose(&pbresponse.WriteFileData{Etag: eTag})
+	return
 }
 func (x *StoreIo) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcstoreio.StoreIO_ReadFileDataServer) (err error) {
 	var (
-		reader *hdfs.FileReader
+		reader io.ReadCloser
 	)
 
-	client := options.HDFSClient
 	ctx := reply.Context()
-
-	filePath := x.getFilePath(req.SpaceId, req.FileId, req.Version)
-	if reader, err = client.OpenFileForRead(ctx, filePath); err != nil {
+	filePath := x.generateResourceFilePath(req.SpaceId, req.FileId, req.Version)
+	if reader, err = options.FiloIO.OpenForRead(ctx, filePath); err != nil {
 		return err
 	}
 	defer func() {
@@ -159,21 +168,33 @@ func (x *StoreIo) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcstoreio.S
 			return err
 		}
 	}
-
 	return
 }
 func (x *StoreIo) DeleteFileData(ctx context.Context, req *pbrequest.DeleteFileData) (*pbmodel.EmptyStruct, error) {
-	client := options.HDFSClient
-	filePath := x.getFilePath(req.SpaceId, req.FileId, req.Version)
-	err := client.Remove(ctx, filePath)
+	filePath := x.generateResourceFilePath(req.SpaceId, req.FileId, req.Version)
+	err := options.FiloIO.Remove(ctx, filePath)
 	if err != nil {
 		return nil, err
 	}
 	return options.EmptyRPCReply, nil
 }
 func (x *StoreIo) DeleteFileDataByFileIds(ctx context.Context, req *pbrequest.DeleteFileDataByFileIds) (*pbmodel.EmptyStruct, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteFileDataByFileIds not implemented")
+	for _, fileId := range req.FileIds {
+		filePath := x.generateResourceFileDir(req.SpaceId, fileId)
+		err := options.FiloIO.RemoveAll(ctx, filePath)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return options.EmptyRPCReply, nil
 }
 func (x *StoreIo) DeleteFileDataBySpaceIds(ctx context.Context, req *pbrequest.DeleteFileDataBySpaceIds) (*pbmodel.EmptyStruct, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteFileDataBySpaceIds not implemented")
+	for _, spaceId := range req.SpaceIds {
+		rootDir := x.generateWorkspaceDir(spaceId)
+		err := options.FiloIO.RemoveAll(ctx, rootDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return options.EmptyRPCReply, nil
 }

@@ -37,7 +37,6 @@ func Start() (err error) {
 	ctx := glog.WithContext(context.Background(), lp)
 
 	var (
-		//db           *gorm.DB
 		rpcServer    *grpcwrap.Server
 		metricServer *metrics.Server
 		tracer       gtrace.Tracer
@@ -46,9 +45,10 @@ func Start() (err error) {
 
 	defer func() {
 		rpcServer.GracefulStop()
+		_ = metricServer.Shutdown(ctx)
 
 		_ = options.Close()
-		_ = metricServer.Shutdown(ctx)
+
 		if tracerCloser != nil {
 			_ = tracerCloser.Close()
 		}

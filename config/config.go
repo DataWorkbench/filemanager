@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/DataWorkbench/common/gtrace"
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/loader"
+	"github.com/DataWorkbench/resourcemanager/pkg/fileio"
 
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
@@ -22,6 +24,11 @@ const (
 	envPrefix = "RESOURCE_MANAGER"
 )
 
+const (
+	StorageBackgroundHDFS = "hdfs"
+	StorageBackgroundS3   = "s3"
+)
+
 // Config is the configuration settings for spacemanager
 type Config struct {
 	LogLevel      int8                   `json:"log_level"      yaml:"log_level"      env:"LOG_LEVEL,default=1" validate:"gte=1,lte=5"`
@@ -30,7 +37,10 @@ type Config struct {
 	MetricsServer *metrics.Config        `json:"metrics_server" yaml:"metrics_server" env:"METRICS_SERVER"      validate:"required"`
 	Tracer        *gtrace.Config         `json:"tracer"         yaml:"tracer"         env:"TRACER"              validate:"required"`
 
-	HadoopConfDir string `json:"hadoop_conf_dir"    yaml:"hadoop_conf_dir"    env:"HADOOP_CONF_DIR"         validate:"required"`
+	// storage_background
+	StorageBackground string           `json:"storage_background" yaml:"storage_background" env:"STORAGE_BACKGROUND,default=hdfs" validate:"required"`
+	HadoopConfDir     string           `json:"hadoop_conf_dir" yaml:"hadoop_conf_dir" env:"HADOOP_CONF_DIR" validate:"-"`
+	S3Config          *fileio.S3Config `json:"s3_config" yaml:"s3_config" env:"S3_CONFIG" validate:"-"`
 }
 
 func loadFromFile(cfg *Config) (err error) {
@@ -80,5 +90,19 @@ func Load() (cfg *Config, err error) {
 		return
 	}
 
+	// check storage background
+	switch cfg.StorageBackground {
+	case StorageBackgroundHDFS:
+		if cfg.HadoopConfDir == "" {
+			err = errors.New("hadoop_conf_dir must specified when storage_background is hdfs")
+		}
+	case StorageBackgroundS3:
+		err = validate.Struct(cfg.S3Config)
+	default:
+		err = errors.New("unsupported storage background")
+	}
+	if err != nil {
+		return
+	}
 	return
 }
