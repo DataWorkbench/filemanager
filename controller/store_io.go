@@ -157,6 +157,7 @@ func (x *StoreIo) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcstoreio.S
 	for {
 		n, err = reader.Read(buf)
 		if err == io.EOF && n == 0 {
+			err = nil
 			break
 		}
 		if err != nil {
