@@ -142,6 +142,9 @@ LOOP:
 	if err != nil {
 		return "", nil
 	}
+	if err = writer.Flush(); err != nil {
+		return "", nil
+	}
 	if err = writer.Close(); err != nil {
 		return "", nil
 	}
