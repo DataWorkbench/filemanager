@@ -118,31 +118,40 @@ func (hd *HDFS) CreateAndWrite(ctx context.Context, name string, reader io.ReadC
 	h := md5.New()
 	buf := make([]byte, 4096)
 	var position int
+
+LOOP:
 	for {
 		position, err = reader.Read(buf)
 		if err == io.EOF && position == 0 {
-			// Read end. calculate the md5 as hex.
-			b := h.Sum(nil)
-			md5Hex := make([]byte, hex.EncodedLen(len(b)))
-			hex.Encode(md5Hex, b)
-			eTag := string(md5Hex)
-			return eTag, nil
+			err = nil
+			break LOOP
 		}
 		if err != nil {
-			return "", nil
+			break LOOP
 		}
 
 		data := buf[:position]
-
 		// Update md5 sum.
 		h.Write(data)
-
 		// write data to hdfs.
 		_, err = writer.Write(data)
 		if err != nil {
-			return "", nil
+			break LOOP
 		}
 	}
+	if err != nil {
+		return "", nil
+	}
+	if err = writer.Close(); err != nil {
+		return "", nil
+	}
+
+	// Calculate the md5 as hex.
+	b := h.Sum(nil)
+	md5Hex := make([]byte, hex.EncodedLen(len(b)))
+	hex.Encode(md5Hex, b)
+	eTag := string(md5Hex)
+	return eTag, nil
 }
 
 func (hd *HDFS) OpenForRead(ctx context.Context, name string) (io.ReadCloser, error) {
