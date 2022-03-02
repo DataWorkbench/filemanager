@@ -1,7 +1,18 @@
 # config file for resourcemanager
 
 # 1=>"debug", 2=>"info", 3=>"warn", 4=>"error", 5=>"fatal"
-log_level: 1
+#log_level: 1
+
+# config for log.
+log:
+  level: 1 # 1=>"debug", 2=>"info", 3=>"warn", 4=>"error", 5=>"fatal"
+  output: "console" # "console" or "file"
+  file:
+    path: "/tmp/log/resourcemanager/resourcemanager.log"
+    max_size: 128 # In MB.
+    max_age: 0
+    max_backups: 0
+    compress: false # determines if the rotated log files should be compressed using gzip.
 
 grpc_server:
   address: "127.0.0.1:9111"  #required

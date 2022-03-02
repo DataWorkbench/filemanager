@@ -13,6 +13,7 @@ import (
 	"github.com/DataWorkbench/common/gtrace"
 	"github.com/DataWorkbench/common/metrics"
 	"github.com/DataWorkbench/common/utils/buildinfo"
+	"github.com/DataWorkbench/common/utils/logutil"
 	"github.com/DataWorkbench/glog"
 	"github.com/DataWorkbench/gproto/xgo/service/pbsvcstoreio"
 	"github.com/DataWorkbench/resourcemanager/config"
@@ -26,22 +27,24 @@ func Start() (err error) {
 		time.Now().Format(time.RFC3339Nano), os.Getpid(), buildinfo.JSONString)
 
 	var cfg *config.Config
-
-	cfg, err = config.Load()
-	if err != nil {
+	if cfg, err = config.Load(); err != nil {
 		return
 	}
 
-	// init parent logger
-	lp := glog.NewDefault().WithLevel(glog.Level(cfg.LogLevel))
-	ctx := glog.WithContext(context.Background(), lp)
-
 	var (
+		lp           *glog.Logger
 		rpcServer    *grpcwrap.Server
 		metricServer *metrics.Server
 		tracer       gtrace.Tracer
 		tracerCloser io.Closer
 	)
+
+	// init root logger
+	if lp, err = logutil.New(cfg.LogConfig); err != nil {
+		return
+	}
+	// Init context.Context.
+	ctx := glog.WithContext(context.Background(), lp)
 
 	defer func() {
 		rpcServer.GracefulStop()

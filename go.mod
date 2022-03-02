@@ -3,8 +3,8 @@ module github.com/DataWorkbench/resourcemanager
 go 1.16
 
 require (
-	github.com/DataWorkbench/common v0.0.0-20220228191005-2e4005674a04
-	github.com/DataWorkbench/glog v0.0.0-20210809050640-4960fd6de6ab
+	github.com/DataWorkbench/common v0.0.0-20220302052704-0006ef1922e6
+	github.com/DataWorkbench/glog v0.0.0-20220302035436-25a1ae256704
 	github.com/DataWorkbench/gproto v0.0.0-20220226075252-3c1f412ed3a5
 	github.com/DataWorkbench/loader v0.0.0-20210808061751-6e1ba7df5cdd
 	github.com/aws/aws-sdk-go v1.43.7
