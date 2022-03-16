@@ -24,11 +24,11 @@ func Init(ctx context.Context, cfg *config.Config) (err error) {
 	// Set grpc logger.
 	grpcwrap.SetLogger(glog.FromContext(ctx), cfg.GRPCLog)
 
-	switch cfg.StorageBackground {
+	switch cfg.Storage.Background {
 	case config.StorageBackgroundHDFS:
-		FiloIO, err = fileio.NewHadoopClientFromConfFile(ctx, cfg.HadoopConfDir, "root")
+		FiloIO, err = fileio.NewHadoopClientFromConfFile(ctx, cfg.Storage.HadoopConfDir, "root")
 	case config.StorageBackgroundS3:
-		FiloIO, err = fileio.NewS3Client(ctx, cfg.S3Config)
+		FiloIO, err = fileio.NewS3Client(ctx, cfg.Storage.S3)
 	}
 	if err != nil {
 		return

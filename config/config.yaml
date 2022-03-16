@@ -28,19 +28,31 @@ tracer:
   service_name: "resourcemanager"
   local_agent: "127.0.0.1:6831"
 
-storage_background: "hdfs" # Supported value: "hdfs", "s3".
+#storeage:
+#  background: "hdfs" # Supported value: "hdfs", "s3".
+#  hadoop_conf_dir: "config/hadoop"
+#  s3:
+#    endpoint: "s3.gd2.qingstor.com"
+#    region: "gd2" # us-west-2
+#    bucket: "demo-yu-gd2-15"
+#    access_key_id: "EHUWSTQPAEUFQMSHJRZA"
+#    secret_access_key: "Nj8TibC7CKa7aywYkIPVfsgiiDkimLACeK3LUXrQ"
+#    disable_ssl: false
+#    force_path_style: false
 
-# HDFS config.
-hadoop_conf_dir: "config/hadoop"
-
-s3_config:
-  endpoint: "s3.gd2.qingstor.com"
-  region: "gd2" # us-west-2
-  bucket: "demo-yu-gd2-15"
-  access_key_id: "EHUWSTQPAEUFQMSHJRZA"
-  secret_access_key: "Nj8TibC7CKa7aywYkIPVfsgiiDkimLACeK3LUXrQ"
-  disable_ssl: false
-  force_path_style: false
+#storage_background: "hdfs" # Supported value: "hdfs", "s3".
+#
+## HDFS config.
+#hadoop_conf_dir: "config/hadoop"
+#
+#s3_config:
+#  endpoint: "s3.gd2.qingstor.com"
+#  region: "gd2" # us-west-2
+#  bucket: "demo-yu-gd2-15"
+#  access_key_id: "EHUWSTQPAEUFQMSHJRZA"
+#  secret_access_key: "Nj8TibC7CKa7aywYkIPVfsgiiDkimLACeK3LUXrQ"
+#  disable_ssl: false
+#  force_path_style: false
 
 
 #mysql:

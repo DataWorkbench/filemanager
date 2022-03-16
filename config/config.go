@@ -30,6 +30,13 @@ const (
 	StorageBackgroundS3   = "s3"
 )
 
+type Storage struct {
+	// storage_background
+	Background    string           `json:"background" yaml:"background" env:"BACKGROUND,default=hdfs" validate:"required"`
+	HadoopConfDir string           `json:"hadoop_conf_dir" yaml:"hadoop_conf_dir" env:"HADOOP_CONF_DIR" validate:"-"`
+	S3            *fileio.S3Config `json:"s3" yaml:"s3" env:"S3" validate:"-"`
+}
+
 // Config is the configuration settings for spacemanager
 type Config struct {
 	LogConfig *logutil.Config `json:"log" yaml:"log" env:"LOG,default=" validate:"required"`
@@ -39,10 +46,12 @@ type Config struct {
 	MetricsServer *metrics.Config        `json:"metrics_server" yaml:"metrics_server" env:"METRICS_SERVER"      validate:"required"`
 	Tracer        *gtrace.Config         `json:"tracer"         yaml:"tracer"         env:"TRACER"              validate:"required"`
 
-	// storage_background
-	StorageBackground string           `json:"storage_background" yaml:"storage_background" env:"STORAGE_BACKGROUND,default=hdfs" validate:"required"`
-	HadoopConfDir     string           `json:"hadoop_conf_dir" yaml:"hadoop_conf_dir" env:"HADOOP_CONF_DIR" validate:"-"`
-	S3Config          *fileio.S3Config `json:"s3_config" yaml:"s3_config" env:"S3_CONFIG" validate:"-"`
+	Storage *Storage `json:"storage" yaml:"storage" env:"STORAGE" validate:"required"`
+
+	//// storage_background
+	//StorageBackground string           `json:"storage_background" yaml:"storage_background" env:"STORAGE_BACKGROUND,default=hdfs" validate:"required"`
+	//HadoopConfDir     string           `json:"hadoop_conf_dir" yaml:"hadoop_conf_dir" env:"HADOOP_CONF_DIR" validate:"-"`
+	//S3Config          *fileio.S3Config `json:"s3_config" yaml:"s3_config" env:"S3_CONFIG" validate:"-"`
 }
 
 func loadFromFile(cfg *Config) (err error) {
@@ -93,13 +102,13 @@ func Load() (cfg *Config, err error) {
 	}
 
 	// check storage background
-	switch cfg.StorageBackground {
+	switch cfg.Storage.Background {
 	case StorageBackgroundHDFS:
-		if cfg.HadoopConfDir == "" {
+		if cfg.Storage.HadoopConfDir == "" {
 			err = errors.New("hadoop_conf_dir must specified when storage_background is hdfs")
 		}
 	case StorageBackgroundS3:
-		err = validate.Struct(cfg.S3Config)
+		err = validate.Struct(cfg.Storage.S3)
 	default:
 		err = errors.New("unsupported storage background")
 	}
