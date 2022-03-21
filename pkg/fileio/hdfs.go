@@ -140,13 +140,13 @@ LOOP:
 		}
 	}
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	if err = writer.Flush(); err != nil {
-		return "", nil
+		return "", err
 	}
 	if err = writer.Close(); err != nil {
-		return "", nil
+		return "", err
 	}
 
 	// Calculate the md5 as hex.
