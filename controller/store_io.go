@@ -156,12 +156,14 @@ func (x *StoreIo) ReadFileData(req *pbrequest.ReadFileData, reply pbsvcstoreio.S
 	buf := make([]byte, 4096)
 	for {
 		n, err = reader.Read(buf)
-		if err == io.EOF && n == 0 {
+		if err == io.EOF {
 			err = nil
-			break
 		}
 		if err != nil {
 			return err
+		}
+		if n == 0 {
+			break
 		}
 		data := buf[:n]
 		err = reply.Send(&pbresponse.ReadFileData{Data: data})
