@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/DataWorkbench/common/utils/logutil"
 	"github.com/DataWorkbench/loader"
 	"github.com/DataWorkbench/resourcemanager/pkg/fileio"
+	"github.com/a8m/envsubst"
 
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
@@ -62,7 +62,7 @@ func loadFromFile(cfg *Config) (err error) {
 	fmt.Printf("%s load config from file <%s>\n", time.Now().Format(time.RFC3339Nano), FilePath)
 
 	var b []byte
-	b, err = ioutil.ReadFile(FilePath)
+	b, err = envsubst.ReadFile(FilePath)
 	if err != nil && os.IsNotExist(err) {
 		return
 	}
