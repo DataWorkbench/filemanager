@@ -41,4 +41,5 @@ target
 
 # environment variable
 project_env.sh
+build
 
