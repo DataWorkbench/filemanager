@@ -78,6 +78,9 @@ func NewS3Client(ctx context.Context, cfg *S3Config) (FileIO, error) {
 }
 
 func (cli *S3Client) Close() error {
+	if cli == nil {
+		return nil
+	}
 	return nil
 }
 

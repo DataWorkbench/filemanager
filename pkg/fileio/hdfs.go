@@ -73,6 +73,9 @@ func newHadoopClientFromConf(ctx context.Context, conf hadoopconf.HadoopConf, us
 }
 
 func (hd *HDFS) Close() error {
+	if hd == nil {
+		return nil
+	}
 	if hd.client != nil {
 		return hd.client.Close()
 	}
